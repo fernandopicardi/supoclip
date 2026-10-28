@@ -105,6 +105,16 @@ def _build_mcp() -> FastMCP:
 
     return FastMCP(
         "supoclip_mcp",
+        instructions=(
+            "For directed editing, discover projects with supoclip_list_edits and read the current edit and transcript. "
+            "Preserve manual work. Checkpoint before changing it. Use real word IDs, source seconds and the expected revision. "
+            "Keep complete thoughts, context, negations and qualifications. Reorder only when references remain clear. "
+            "Treat timestamps as approximate; never claim to have listened from text or frames. "
+            "Prefer dropping a secondary idea to truncating speech for duration. "
+            "Use explicit editorial operations instead of automatic clip selection when the user directs the narrative. "
+            "On conflicts, reread and reconcile; never blindly restore an old snapshot. "
+            "Export immutable revisions, check actual output, and distinguish structural validation from audio review."
+        ),
         host=SETTINGS.mcp_host,
         port=SETTINGS.mcp_port,
         auth=auth_settings,
@@ -787,6 +797,11 @@ async def supoclip_delete_task(
     """
     data = await _client().request("DELETE", f"/tasks/{task_id}")
     return _json(data)
+
+
+from .editorial import register_editorial_tools
+
+register_editorial_tools(mcp, _client, tool_errors)
 
 
 def main() -> None:

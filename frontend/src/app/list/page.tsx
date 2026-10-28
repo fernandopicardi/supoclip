@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { GenerationCard } from "@/components/app/generation-card";
+import { EditorialLibrary } from "@/components/app/editorial-library";
 import { fetchGenerations, type GenerationSummary } from "@/lib/generations";
 import { groupByOriginalVideo, type LibrarySort } from "@/lib/library-groups";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -376,6 +377,8 @@ export default function ListPage() {
           </Button>
         </div>
       </div>
+
+      <EditorialLibrary key={session.user.id} userId={session.user.id} query={search} />
 
       {!isLoading && !error && tasks.length > 0 && (
         <div className="scrollbar-none -mx-4 mt-6 flex items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0">

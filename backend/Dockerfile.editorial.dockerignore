@@ -1,0 +1,10 @@
+**
+!backend/
+!backend/src/
+!backend/src/**
+!mcp/
+!mcp/src/
+!mcp/src/**
+**/__pycache__
+**/*.pyc
+**/.env*

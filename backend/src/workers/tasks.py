@@ -201,6 +201,7 @@ from ..services.clip_export_service import (
     export_clip_preset,
 )
 from ..services.social_service import PUBLISH_JOB_TIMEOUT_SECONDS
+from ..services.editorial_service import prepare_editorial_source, export_editorial
 
 # Worker configuration for arq
 class WorkerSettings:
@@ -217,6 +218,8 @@ class WorkerSettings:
         prepare_editor,
         export_editor,
         combine_editor,
+        func(prepare_editorial_source, max_tries=1),
+        func(export_editorial, max_tries=1),
         # One try: a lost running export is failed by the heartbeat sweep, and a
         # retry would start a second encode for the same row.
         func(

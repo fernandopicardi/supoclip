@@ -183,6 +183,8 @@ def create_app(
     from .api.routes.editor import router as editor_router
     app.include_router(clip_export_router)
     app.include_router(editor_router)
+    from .api.routes.editorial import router as editorial_router
+    app.include_router(editorial_router)
     app.include_router(admin_router)
 
     from .api.routes.media import router as media_router

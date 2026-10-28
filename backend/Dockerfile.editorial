@@ -1,0 +1,5 @@
+# Local overlay: reuse the installed, locked runtime; do not reinstall dependencies.
+ARG EDITORIAL_BASE=supoclip-editorial-base:local
+FROM ${EDITORIAL_BASE}
+COPY backend/src/ /app/src/
+COPY mcp/src/ /app/mcp_src/

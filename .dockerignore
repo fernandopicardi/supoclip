@@ -10,6 +10,10 @@ docs
 observability
 scripts
 assets
+local-bench
+local-smoke
+supoclip-downloads
+LOCAL-INSTALL.md
 **/node_modules
 **/.next
 **/coverage

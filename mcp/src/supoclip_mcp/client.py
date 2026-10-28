@@ -171,6 +171,24 @@ class SupoClipClient:
             "bytes": bytes_written,
         }
 
+    async def upload_source(self, path: str, transcribe: bool = True) -> Any:
+        """Stream a local file to the authenticated editorial API."""
+        self._require_auth()
+        source = Path(path).expanduser().resolve(strict=True)
+        if not source.is_file():
+            raise SupoClipError('Source must be a local video file')
+        try:
+            with source.open('rb') as media:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(900, connect=10)) as client:
+                    response = await client.post(
+                        f'{self.settings.api_url}/editorial/sources', headers=self._auth_headers(),
+                        files={'file': (source.name, media, 'application/octet-stream')},
+                        data={'transcribe': str(transcribe).lower()},
+                    )
+            return self._parse(response, '/editorial/sources')
+        except httpx.HTTPError:
+            raise SupoClipError('Local source upload failed') from None
+
     # -- helpers ------------------------------------------------------------
     @staticmethod
     def _parse(response: httpx.Response, path: str) -> Any:

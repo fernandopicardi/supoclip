@@ -12,6 +12,7 @@ import { VideoSourceIcon } from "@/components/video-source-icon";
 import { FONT_SEARCH_THRESHOLD, formatUploadLimit, getYouTubeThumbnailUrl, maxVideoUploadBytes, uploadVideoFile, validateVideoSourceUrl } from "@/lib/video-upload";
 import { AppShell } from "@/components/app/app-shell";
 import { GenerationCard } from "@/components/app/generation-card";
+import { EditorialLibrary } from "@/components/app/editorial-library";
 import { VideoDownloadStatus } from "@/components/app/video-download-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -721,6 +722,8 @@ export default function HomeApp() {
             })}
           </p>
         </div>
+
+        {session?.user?.id && <EditorialLibrary key={session.user.id} userId={session.user.id} />}
 
         <section className="mt-16 md:mt-24" aria-labelledby="recent-heading">
           <div className="mb-4 flex items-end justify-between">

@@ -1,0 +1,24 @@
+services:
+  backend:
+    image: supoclip-backend:editorial-local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.editorial
+  worker:
+    image: supoclip-backend:editorial-local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.editorial
+  frontend:
+    image: supoclip-frontend:editorial-local
+  mcp:
+    image: supoclip-backend:editorial-local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.editorial
+    entrypoint: ["/app/.venv/bin/python", "-m", "supoclip_mcp.server"]
+    command: []
+    environment:
+      PYTHONPATH: /app/mcp_src
+      SUPOCLIP_API_URL: http://backend:8000
+      SUPOCLIP_MCP_PUBLIC_URL: http://127.0.0.1:9100

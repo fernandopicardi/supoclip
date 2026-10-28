@@ -30,6 +30,19 @@ By default it talks to the **official hosted SupoClip API** at
 
 Tools marked ✓ require an API key (or self-host credentials, see below).
 
+## Directed editorial workflow
+
+The local extension also supports source preparation without automatic clip
+selection, paginated word transcripts, ordered timelines, occurrence-specific
+cuts and caption corrections, revision conflicts, checkpoints, and immutable
+vertical exports. See [the editorial guide](../docs/editorial-mcp.md).
+
+Discover existing directed projects with `supoclip_list_edits` and reusable
+sources with `supoclip_list_sources`. Read `supoclip_get_edit_schema` before
+calling `supoclip_apply_edit_operations`. These projects are distinct from the
+legacy automatic clip tasks. Explicit selections are never shortened to meet
+the automatic clip-length presets.
+
 ## Getting an API key
 
 1. Sign in at [supoclip.com](https://supoclip.com).
