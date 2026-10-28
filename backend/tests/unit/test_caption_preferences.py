@@ -29,7 +29,7 @@ def test_new_editor_defaults_use_account_font_and_map_font_size_units():
     prefs = {'default_font_family': 'NunitoSans', 'default_font_size': 24, 'default_font_color': '#FFFFFF', 'default_caption_style': {'y': .5, 'wordsPerLine': 3}}
     result = editorial_defaults(prefs)
     assert result['font'] == 'NunitoSans'
-    assert result['size'] == 46
+    assert result['size'] == 118
     assert result['y'] == .5 and result['wordsPerLine'] == 3
     assert result['color'] == '#FFFFFF' and not result['background']
 

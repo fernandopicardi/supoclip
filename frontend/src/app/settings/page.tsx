@@ -1,4 +1,5 @@
 "use client";
+import { captionFontUrl } from "@/lib/caption-typography";
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
@@ -113,8 +114,8 @@ export default function SettingsPage() {
             return `
               @font-face {
                 font-family: '${font.name}';
-                src: url('/api/fonts/${font.name}') format('truetype');
-                font-weight: normal;
+                src: url('${captionFontUrl(font.name)}') format('truetype');
+                font-weight: 100 900;
                 font-style: normal;
               }
             `;

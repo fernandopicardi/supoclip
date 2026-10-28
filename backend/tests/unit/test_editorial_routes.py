@@ -55,7 +55,7 @@ async def test_caption_defaults_seed_only_new_edits(editorial_client, monkeypatc
     assert defaults.status_code == 200 and defaults.json()['captions']['y'] == .5
     first = (await http.post('/editorial/edits', json={'source_id': source})).json()
     assert first['document']['captions']['font'] == 'NunitoSans'
-    assert first['document']['captions']['size'] == 46
+    assert first['document']['captions']['size'] == 118
     preferences['default_caption_style']['y'] = .2
     second = (await http.post('/editorial/edits', json={'source_id': source})).json()
     assert second['document']['captions']['y'] == .2

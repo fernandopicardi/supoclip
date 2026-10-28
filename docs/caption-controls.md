@@ -31,6 +31,22 @@ Backend: caption preferences, editor documents/routes, font registry and mocked
 task propagation tests. ASS text generation is checked without media encoding.
 Final video appearance and karaoke timing require a separately approved export.
 
+### Preview / export typography
+
+Settings sizes are CSS pixels in a 300px reference frame (24 means 12 CSS px
+in the 150px settings preview). The preview scales with its actual container.
+Before creating a new edit or rendering an advanced generation, the backend
+converts CSS em pixels to libass font-height units using the selected font's
+ascent, descent and units-per-em. For Nunito Sans, 24 becomes 118 in a
+1080-wide editor document and 79 at width 720. The editor's range now allows
+these larger font-height values. Existing documents retain their saved sizes;
+reapply account defaults explicitly when upgrading an existing edit.
+
+The `NunitoSans` API name points to its static Bold/700 face because libass
+selected the variable file's default ExtraLight face. Browser font loaders
+request fresh font assets and specify the same bold weight. This change does
+not rewrite account preferences, existing timelines, recordings or exports.
+
 The reused backend runtime is patched to the Authlib wheel and hash in `uv.lock`
 (1.9.1). This resolves the critical finding reported by the image gate during
 this release without replacing unrelated installed dependencies. Run the image

@@ -407,10 +407,14 @@ def create_optimized_clip(
 
             custom_template = None
             caption_center = None
+            caption_font_px = None
             if caption_style is not None:
                 from .caption_preferences import apply_caption_layout
                 custom_template = apply_caption_layout(get_template(caption_template), caption_style)
                 caption_center = round(target_height * caption_style["y"])
+                from .caption_typography import settings_ass_font_size
+                caption_font_px = settings_ass_font_size(font_size or custom_template['font_size'],
+                                                        font_family or custom_template['font_family'], target_width)
             burn_ass_path: Optional[Path] = None
             fonts_dir: Optional[Path] = None
             if (add_subtitles or hook_title) and build_assemblyai_ass_subtitles(
@@ -428,7 +432,9 @@ def create_optimized_clip(
                 hook_title=hook_title,
                 include_captions=add_subtitles,
                 position_y_override=caption_y,
-                **({"template_override": custom_template, "center_y_override": caption_center} if custom_template is not None else {}),
+                **({"template_override": custom_template, "center_y_override": caption_center,
+                    "font_px_override": caption_font_px
+                    } if custom_template is not None else {}),
             ):
                 burn_ass_path = ass_path
                 fonts_dir = ass_fonts_dir(

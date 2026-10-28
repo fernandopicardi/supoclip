@@ -9,6 +9,7 @@ import {
   type CaptionWord,
   type EditDocument,
 } from "./document";
+import { captionFontUrl } from "@/lib/caption-typography";
 
 const groupCache = new WeakMap<
   EditDocument,
@@ -26,7 +27,8 @@ export function loadEditorFont(name: string) {
       (async () => {
         const font = new FontFace(
           `Editor-${name}`,
-          `url(/api/fonts/${encodeURIComponent(name)})`,
+          `url(${captionFontUrl(name)})`,
+          { weight: "100 900" },
         );
         await font.load();
         document.fonts.add(font);
@@ -58,11 +60,11 @@ const HOOK_SECONDS = 4,
 
 /** libass sizes fonts by ascender + descender, not the em box CSS uses. */
 function setAssFont(ctx: CanvasRenderingContext2D, font: string, size: number) {
-  ctx.font = `${size}px "Editor-${font}", sans-serif`;
+  ctx.font = `700 ${size}px "Editor-${font}", sans-serif`;
   const metrics = ctx.measureText("A"),
     height = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
   if (height > 0)
-    ctx.font = `${(size * size) / height}px "Editor-${font}", sans-serif`;
+    ctx.font = `700 ${(size * size) / height}px "Editor-${font}", sans-serif`;
 }
 
 /** Linear keyframes, as ASS `\t` interpolates them. */

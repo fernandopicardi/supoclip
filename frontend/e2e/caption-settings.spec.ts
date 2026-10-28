@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 test("caption controls preview, save and reload without creating media", async ({ page }) => {
@@ -10,7 +11,7 @@ test("caption controls preview, save and reload without creating media", async (
     session: { id: "session", userId: "user", expiresAt: "2099-01-01T00:00:00Z" },
     user: { id: "user", name: "Teste", email: "test@example.com", emailVerified: true } } }));
   await page.route("**/api/fonts", route => route.fulfill({ json: { fonts: [{ name: "NunitoSans", display_name: "Nunito Sans", scope: "system" }] } }));
-  await page.route("**/api/fonts/NunitoSans", route => route.fulfill({ status: 404 }));
+  await page.route("**/api/fonts/NunitoSans?**", route => route.fulfill({ contentType: "font/ttf", body: readFileSync("../backend/fonts/NunitoSans.ttf") }));
   await page.route("**/api/announcements**", route => route.fulfill({ json: { announcements: [] } }));
   await page.route("**/api/tasks/billing-summary", route => route.fulfill({ json: { monetization_enabled: false } }));
   await page.route("**/api/preferences", async route => {
@@ -22,6 +23,9 @@ test("caption controls preview, save and reload without creating media", async (
   await page.getByRole("button", { name: "Center", exact: true }).click();
   const drag = page.getByRole("button", { name: "Drag the caption or use arrow keys to adjust its position" });
   await expect(drag).toHaveAttribute("style", /top: 50%/);
+  await expect(drag).toHaveCSS("font-size", "12px");
+  await expect(drag).toHaveCSS("font-weight", "700");
+  await page.evaluate(() => document.fonts.ready);
   await drag.focus();
   await page.keyboard.press("Shift+ArrowUp");
   await expect(page.getByText("45%", { exact: true })).toBeVisible();

@@ -8,4 +8,6 @@ RUN /app/.venv/bin/python -c "import tomllib; p=next(p for p in tomllib.load(ope
     && uv --no-config pip install --python /app/.venv/bin/python --no-deps --require-hashes -r /tmp/editorial-security.txt \
     && rm /tmp/editorial-security.txt
 COPY backend/src/ /app/src/
+COPY backend/fonts/NunitoSans.ttf backend/fonts/NunitoSans-OFL.txt /app/fonts/
+RUN fc-cache -f /app/fonts
 COPY mcp/src/ /app/mcp_src/

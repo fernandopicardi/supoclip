@@ -58,3 +58,13 @@ wdth=100, opsz=36, slnt=0` with fontTools `varLib.instancer`, renamed to family
 "TikTok Sans" / style "Bold". libass renders a variable font's default instance,
 so captions need the static file to get real bold TikTok Sans.
 Source: https://fonts.google.com/specimen/TikTok+Sans (OFL).
+
+## Nunito Sans Bold (static caption face)
+
+`NunitoSans.ttf` now contains the static Bold/700 face (97,276 bytes),
+copied from the locally installed `NunitoSans-Bold.ttf`. The font's embedded
+copyright and license metadata are preserved. Source family: Google Fonts,
+https://fonts.google.com/specimen/Nunito+Sans (SIL Open Font License).
+SHA-256: ba358d29576c727a7ba49e257c25c7ac9f5bb2dd411000f47da5c7a29eb246e9.
+The stable API name remains `NunitoSans`. The previous variable file's default
+ExtraLight instance did not render the bold weight shown in the browser preview.

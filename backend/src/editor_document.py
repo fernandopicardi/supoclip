@@ -54,8 +54,8 @@ class CaptionStyle(Model):
     enabled: bool = True
     font: str = Field(default="Poppins-ExtraBold", min_length=1, max_length=160,
                       pattern=r"^[A-Za-z0-9][A-Za-z0-9 _.-]*$")
-    # 1080-wide units; 132 matches the generation renderer's largest caption.
-    size: int = Field(default=54, ge=20, le=132)
+    # libass font-height units at width 1080, including CSS/ASS metric conversion.
+    size: int = Field(default=54, ge=20, le=512)
     color: str = Field(default="#FFFFFF", pattern=r"^#[0-9a-fA-F]{6}$")
     accent: str = Field(default="#FACC15", pattern=r"^#[0-9a-fA-F]{6}$")
     y: float = Field(default=0.78, ge=0.1, le=0.9)

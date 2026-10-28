@@ -229,7 +229,7 @@ export function Inspector({
                 label={t("captions.size")}
                 value={doc.captions.size}
                 min={20}
-                max={132}
+                max={512}
                 onChange={(size) => caption({ size })}
               />
               <Range

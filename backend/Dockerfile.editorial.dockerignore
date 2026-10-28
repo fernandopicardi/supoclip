@@ -2,6 +2,9 @@
 !backend/
 !backend/uv.lock
 !backend/pyproject.toml
+!backend/fonts/
+!backend/fonts/NunitoSans.ttf
+!backend/fonts/NunitoSans-OFL.txt
 !backend/src/
 !backend/src/**
 !mcp/

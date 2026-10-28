@@ -33,9 +33,11 @@ def apply_caption_layout(template: dict, layout: dict) -> dict:
 
 def editorial_defaults(preferences: dict) -> dict:
     from .editor_document import CaptionStyle
+    from .caption_typography import settings_ass_font_size
     layout = CaptionLayout.model_validate(preferences.get('default_caption_style') or {}).model_dump()
-    return CaptionStyle(**layout, font=preferences.get('default_font_family') or 'TikTokSans-Regular',
-                        size=round((preferences.get('default_font_size') or 24) * 1080 / 560),
+    font = preferences.get('default_font_family') or 'TikTokSans-Regular'
+    return CaptionStyle(**layout, font=font,
+                        size=min(512, settings_ass_font_size(preferences.get('default_font_size') or 24, font)),
                         color=preferences.get('default_font_color') or '#FFFFFF').model_dump()
 
 

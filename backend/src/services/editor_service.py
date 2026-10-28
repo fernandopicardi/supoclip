@@ -163,6 +163,9 @@ def initial_caption_style(
         font = template["font_family"] if template["font_family"] in EDITOR_FONTS else "TikTokSans-Regular"
     base_size = caption_settings.get("font_size") or task.get("font_size") or template["font_size"]
     font_px = get_scaled_font_size(int(base_size), width)
+    if caption_settings.get("layout"):
+        from ..caption_typography import settings_ass_font_size
+        font_px = settings_ass_font_size(int(base_size), font, width)
     color = task.get("font_color") or template["font_color"]
     accent = template.get("highlight_color") or "#FACC15"
     position_y = caption_settings.get("position_y") or template.get("position_y") or 0.78
@@ -174,7 +177,7 @@ def initial_caption_style(
         "enabled": enabled,
         "font": font,
         # The editor sizes text in 1080-wide units.
-        "size": max(20, min(132, round(font_px * 1080 / width))),
+        "size": max(20, min(512, round(font_px * 1080 / width))),
         "color": color if re.fullmatch(r"#[0-9a-fA-F]{6}", color or "") else "#FFFFFF",
         "accent": accent if re.fullmatch(r"#[0-9a-fA-F]{6}", accent) else "#FACC15",
         "y": max(0.1, min(0.9, center_px / height)),

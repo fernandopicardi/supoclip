@@ -1,4 +1,5 @@
 "use client";
+import { captionFontUrl } from "@/lib/caption-typography";
 import { CaptionLayoutControls, CaptionStylePreview } from "@/components/caption-layout-controls";
 import { DEFAULT_CAPTION_LAYOUT, savedCaptionLayout, type CaptionLayout } from "@/lib/caption-layout";
 
@@ -187,8 +188,8 @@ export default function HomeApp() {
       styleElement.innerHTML = fonts.map((font) => `
         @font-face {
           font-family: '${font.name}';
-          src: url('/api/fonts/${font.name}') format('${font.format === "otf" ? "opentype" : "truetype"}');
-          font-weight: normal;
+          src: url('${captionFontUrl(font.name)}') format('${font.format === "otf" ? "opentype" : "truetype"}');
+          font-weight: 100 900;
           font-style: normal;
         }`).join("\n");
       document.getElementById("custom-fonts")?.remove();
