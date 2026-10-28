@@ -1,4 +1,6 @@
 "use client";
+import { CaptionLayoutControls, CaptionStylePreview } from "@/components/caption-layout-controls";
+import { DEFAULT_CAPTION_LAYOUT, savedCaptionLayout, type CaptionLayout } from "@/lib/caption-layout";
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -85,6 +87,8 @@ export default function HomeApp() {
   const [fontFamily, setFontFamily] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number | null>(null);
   const [fontColor, setFontColor] = useState<string | null>(null);
+  const [captionStyle, setCaptionStyle] = useState<CaptionLayout>({ ...DEFAULT_CAPTION_LAYOUT });
+  const captionPreferencesEdited = useRef(false);
   const [availableFonts, setAvailableFonts] = useState<FontOption[]>([]);
   const [fontSearch, setFontSearch] = useState("");
   const [fontLoadError, setFontLoadError] = useState<string | null>(null);
@@ -131,6 +135,12 @@ export default function HomeApp() {
       void fetch("/api/preferences")
         .then((response) => response.ok ? response.json() : null)
         .then((preferences) => {
+          if (!cancelled && preferences && !captionPreferencesEdited.current) {
+            setCaptionStyle(savedCaptionLayout(preferences.captionStyle));
+            setFontFamily(preferences.fontFamily ?? null);
+            setFontSize(preferences.fontSize ?? null);
+            setFontColor(preferences.fontColor ?? null);
+          }
           if (!cancelled && !clipLengthEdited.current && isClipLength(preferences?.clipLength)) {
             setClipLength(preferences.clipLength);
           }
@@ -321,6 +331,7 @@ export default function HomeApp() {
           source: { url: videoUrl, title: sourceType === "upload" && file?.name ? file.name.slice(0, 500) : null },
           font_options: fontOptions,
           caption_template: captionTemplate,
+          caption_style: captionStyle,
           processing_mode: "fast",
           output_format: outputFormat,
           clip_length: clipLength,
@@ -516,8 +527,8 @@ export default function HomeApp() {
                     {addSubtitles ? selectedTemplate?.name || t("defaultTemplate") : t("noCaptions")}<ChevronDown className="size-3 opacity-60" />
                   </Chip>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[min(92vw,560px)] rounded-2xl p-0">
-                  <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_180px]">
+                <PopoverContent align="start" className="max-h-[75dvh] w-[min(92vw,560px)] overflow-y-auto rounded-2xl p-0">
+                  <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_180px]" onPointerDownCapture={() => { captionPreferencesEdited.current = true; }} onKeyDownCapture={() => { captionPreferencesEdited.current = true; }}>
                     <div className="max-h-[420px] min-w-0 space-y-4 overflow-y-auto p-4">
                       <div className="flex items-center justify-between gap-4 border-b pb-4">
                         <label htmlFor="add-captions" className="text-sm font-medium">{t("captions")}</label>
@@ -602,13 +613,10 @@ export default function HomeApp() {
                       </div>
                     </div>
 
+                    <div className="border-t p-4 sm:hidden"><CaptionLayoutControls value={captionStyle} onChange={(style) => { captionPreferencesEdited.current = true; setCaptionStyle(style); }} disabled={controlsDisabled} /></div>
                     <div className="hidden border-l bg-muted/40 p-4 sm:block">
-                      <CaptionPreview
-                        thumbnail={youtubeThumbnailUrl}
-                        fontFamily={previewFontFamily}
-                        fontSize={previewFontSize}
-                        color={previewFontColor}
-                      />
+                      <CaptionStylePreview thumbnail={youtubeThumbnailUrl} value={captionStyle} onChange={(style) => { captionPreferencesEdited.current = true; setCaptionStyle(style); }} fontFamily={previewFontFamily} fontSize={previewFontSize} color={previewFontColor} disabled={controlsDisabled} />
+                      <div className="mt-5 border-t pt-4"><CaptionLayoutControls value={captionStyle} onChange={(style) => { captionPreferencesEdited.current = true; setCaptionStyle(style); }} disabled={controlsDisabled} /></div>
                       <p className="mt-3 text-center text-[11px] text-muted-foreground">{t("livePreview")}</p>
                     </div>
                   </div>
@@ -773,32 +781,6 @@ function Chip({ active, className, children, ...props }: React.ComponentProps<"b
     >
       {children}
     </button>
-  );
-}
-
-function CaptionPreview({ thumbnail, fontFamily, fontSize, color }: { thumbnail: string | null; fontFamily: string; fontSize: number; color: string }) {
-  const t = useTranslations("home");
-  return (
-    <div className="relative mx-auto aspect-[9/16] w-full overflow-hidden rounded-xl bg-stone-800 shadow-inner">
-      {thumbnail ? (
-        <div className="absolute inset-0 scale-110 bg-cover bg-center blur-[2px]" style={{ backgroundImage: `url(${thumbnail})` }} />
-      ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,oklch(0.55_0.05_50),oklch(0.22_0.01_50))]" />
-      )}
-      <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-black/40 to-transparent" />
-      <p className="absolute inset-x-2 top-[10%] text-center text-[10px] font-bold leading-tight text-white drop-shadow">{t("previewHook")}</p>
-      <p
-        className="absolute inset-x-2 top-[72%] text-center font-bold leading-snug"
-        style={{
-          color,
-          fontFamily: `'${fontFamily}', system-ui, sans-serif`,
-          fontSize: `${Math.max(Math.min(fontSize * 0.5, 18), 10)}px`,
-          textShadow: "0 2px 6px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9)",
-        }}
-      >
-        {t("previewCaptions")}
-      </p>
-    </div>
   );
 }
 

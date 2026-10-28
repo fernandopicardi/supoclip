@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlignCenter,
@@ -123,6 +123,12 @@ export function Inspector({
   applyAll,
 }: Props) {
   const t = useTranslations("editor");
+  const [fonts, setFonts] = useState<{ name: string; display_name: string }[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/fonts", { signal: controller.signal, cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((data) => { if (!controller.signal.aborted && data?.fonts) setFonts(data.fonts); }).catch(() => {});
+    return () => controller.abort();
+  }, []);
   const scriptWords = useRef(doc.words);
   const [script, setScript] = useState<string | null>(null),
     [applying, setApplying] = useState(false);
@@ -215,12 +221,7 @@ export function Inspector({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TikTokSans-Regular">TikTok Sans</SelectItem>
-                    <SelectItem value="TikTokSans-Bold">TikTok Sans Bold</SelectItem>
-                    <SelectItem value="Poppins-ExtraBold">
-                      Poppins Extra Bold
-                    </SelectItem>
-                    <SelectItem value="THEBOLDFONT">The Bold Font</SelectItem>
+                    {(fonts.length ? fonts : [{ name: doc.captions.font, display_name: doc.captions.font }]).map((font) => <SelectItem key={font.name} value={font.name}>{font.display_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>

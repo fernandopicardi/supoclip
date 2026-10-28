@@ -54,6 +54,12 @@ class User(Base):
     default_clip_length: Mapped[str] = mapped_column(
         String(10), nullable=False, server_default=sql_text("'auto'")
     )
+    default_font_family: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, server_default=sql_text("'TikTokSans-Regular'"))
+    default_font_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, server_default=sql_text("'24'"))
+    default_font_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True, server_default=sql_text("'#FFFFFF'"))
+    default_caption_style: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'{}'::jsonb")
+    )
 
     # Billing fields
     notify_on_completion: Mapped[bool] = mapped_column(

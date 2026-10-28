@@ -270,6 +270,7 @@ def create_optimized_clip(
     extend_to_sentence: bool = True,
     layout_report: Optional[Dict[str, Any]] = None,
     broll_overlays: Optional[List[Dict[str, Any]]] = None,
+    caption_style: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Create clip with optional subtitles. output_format: 'vertical' (9:16) or 'original' (keep source size).
 
@@ -404,6 +405,12 @@ def create_optimized_clip(
             if layout_report is not None and caption_y is not None:
                 layout_report["caption_y"] = caption_y
 
+            custom_template = None
+            caption_center = None
+            if caption_style is not None:
+                from .caption_preferences import apply_caption_layout
+                custom_template = apply_caption_layout(get_template(caption_template), caption_style)
+                caption_center = round(target_height * caption_style["y"])
             burn_ass_path: Optional[Path] = None
             fonts_dir: Optional[Path] = None
             if (add_subtitles or hook_title) and build_assemblyai_ass_subtitles(
@@ -421,6 +428,7 @@ def create_optimized_clip(
                 hook_title=hook_title,
                 include_captions=add_subtitles,
                 position_y_override=caption_y,
+                **({"template_override": custom_template, "center_y_override": caption_center} if custom_template is not None else {}),
             ):
                 burn_ass_path = ass_path
                 fonts_dir = ass_fonts_dir(

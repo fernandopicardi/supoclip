@@ -37,8 +37,11 @@ import Link from "next/link";
 import { AlertCircle, Bot, Check, ChevronRight, Clock, CreditCard, Languages, Loader2, Mail, Megaphone, Share2, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FontSelectOption, type FontOption } from "@/components/font-select-option";
+import { CaptionLayoutControls, CaptionStylePreview } from "@/components/caption-layout-controls";
+import { DEFAULT_CAPTION_LAYOUT, savedCaptionLayout, type CaptionLayout } from "@/lib/caption-layout";
 
 interface UserPreferences {
+  captionStyle?: CaptionLayout;
   fontFamily: string;
   fontSize: number;
   fontColor: string;
@@ -49,6 +52,7 @@ export default function SettingsPage() {
   const [fontFamily, setFontFamily] = useState("TikTokSans-Regular");
   const [fontSize, setFontSize] = useState(24);
   const [fontColor, setFontColor] = useState("#FFFFFF");
+  const [captionStyle, setCaptionStyle] = useState<CaptionLayout>({ ...DEFAULT_CAPTION_LAYOUT });
   const [completionEmails, setCompletionEmails] = useState(true);
   const [availableFonts, setAvailableFonts] = useState<FontOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -151,7 +155,9 @@ export default function SettingsPage() {
           setFontSize(data.fontSize);
           setFontColor(data.fontColor);
           setCompletionEmails(data.notifyOnCompletion ?? true);
-          setSavedSnapshot(JSON.stringify([data.fontFamily, data.fontSize, data.fontColor, data.notifyOnCompletion ?? true]));
+          const layout = savedCaptionLayout(data.captionStyle);
+          setCaptionStyle(layout);
+          setSavedSnapshot(JSON.stringify([data.fontFamily, data.fontSize, data.fontColor, data.notifyOnCompletion ?? true, layout]));
         }
       } catch (error) {
         console.error('Failed to load preferences:', error);
@@ -246,6 +252,7 @@ export default function SettingsPage() {
           fontSize,
           fontColor,
           notifyOnCompletion: completionEmails,
+          captionStyle,
         }),
       });
 
@@ -255,7 +262,7 @@ export default function SettingsPage() {
       }
 
       track("preferences_saved");
-      setSavedSnapshot(JSON.stringify([fontFamily, fontSize, fontColor, completionEmails]));
+      setSavedSnapshot(JSON.stringify([fontFamily, fontSize, fontColor, completionEmails, captionStyle]));
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
@@ -289,7 +296,7 @@ export default function SettingsPage() {
     );
   }
 
-  const dirty = savedSnapshot !== null && savedSnapshot !== JSON.stringify([fontFamily, fontSize, fontColor, completionEmails]);
+  const dirty = savedSnapshot !== null && savedSnapshot !== JSON.stringify([fontFamily, fontSize, fontColor, completionEmails, captionStyle]);
   // The save bar only appears once there's something to save (and briefly to confirm it).
   const showSaveBar = dirty || isLoading || success;
   const minuteLimit = billingSummary?.minute_limit ?? null;
@@ -316,9 +323,9 @@ export default function SettingsPage() {
           <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_150px]">
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-sm">{t("captions.font")}</Label>
+                <Label htmlFor="default-caption-font" className="text-sm">{t("captions.font")}</Label>
                 <Select value={fontFamily} onValueChange={setFontFamily} disabled={isLoading}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder={t("captions.selectFont")} /></SelectTrigger>
+                  <SelectTrigger id="default-caption-font" className="w-full"><SelectValue placeholder={t("captions.selectFont")} /></SelectTrigger>
                   <SelectContent>
                     {availableFonts.map((font) => (
                       <FontSelectOption key={font.name} font={font} />
@@ -369,19 +376,12 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="relative mx-auto aspect-[9/16] w-full max-w-[150px] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_50%_30%,oklch(0.5_0.05_50),oklch(0.2_0.01_50))]" aria-label={t("captions.preview")}>
-              <p
-                className="absolute inset-x-2 top-[70%] text-center font-bold leading-snug"
-                style={{
-                  color: fontColor,
-                  fontFamily: `'${fontFamily}', system-ui, sans-serif`,
-                  fontSize: `${Math.max(Math.min(fontSize * 0.5, 18), 9)}px`,
-                  textShadow: "0 2px 6px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9)",
-                }}
-              >
-                {t("captions.sample")}
-              </p>
+            <div className="space-y-5">
+              <CaptionStylePreview value={captionStyle} onChange={setCaptionStyle} fontFamily={fontFamily} fontSize={fontSize} color={fontColor} disabled={isLoading} />
             </div>
+          </div>
+          <div className="mt-6 border-t pt-5">
+            <CaptionLayoutControls value={captionStyle} onChange={setCaptionStyle} disabled={isLoading} />
           </div>
         </Section>
 

@@ -96,7 +96,7 @@ def _collect_fonts_from_dir(font_dir: Path, scope: str) -> list[dict[str, Any]]:
             fonts.append(
                 {
                     "name": font_path.stem,
-                    "display_name": _display_name(font_path.stem),
+                    "display_name": _display_name(font_path.stem.removeprefix(f"usr-{font_dir.name.lower()}-") if scope == "user" else font_path.stem),
                     "filename": font_path.name,
                     "format": extension.lstrip("."),
                     "file_path": str(font_path),

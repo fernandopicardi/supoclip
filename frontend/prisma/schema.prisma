@@ -73,6 +73,7 @@ model User {
   default_font_family String?   @default("TikTokSans-Regular") @db.VarChar(100)
   default_font_size   Int?      @default(24)
   default_font_color  String?   @default("#FFFFFF") @db.VarChar(7)
+  default_caption_style Json   @default("{}")
   notify_on_completion Boolean  @default(true)
   default_clip_length  String   @default("auto") @db.VarChar(10)
   product_updates_unsubscribed_at DateTime? @db.Timestamptz

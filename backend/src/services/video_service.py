@@ -469,6 +469,7 @@ class VideoService:
         max_clip_seconds: float = 60.0,
         include_broll: bool = False,
         broll_session: Optional[BRollSession] = None,
+        caption_style: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Render a single clip in the thread pool and return clip_info dict, or None on failure.
 
@@ -554,6 +555,7 @@ class VideoService:
                 extend_to_sentence=False,
                 layout_report=render_report,
                 broll_overlays=broll_overlays,
+                **({"caption_style": caption_style} if caption_style is not None else {}),
             )
 
             if not success:
@@ -571,6 +573,9 @@ class VideoService:
 
             save_clip_source_ranges(clip_path, keep_ranges)
             save_clip_broll(clip_path, broll_placements)
+            if caption_style is not None:
+                from ..clip_source_map import save_clip_caption_settings
+                save_clip_caption_settings(clip_path, {"layout": caption_style, "position_y": caption_style["y"]})
             cleaned_duration = sum(end - start for start, end in keep_ranges)
             logger.info(
                 f"Created clip {clip_index + 1}: {cleaned_duration:.1f}s"

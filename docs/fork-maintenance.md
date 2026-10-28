@@ -12,6 +12,7 @@ baseline. Keep upstream `main` available independently.
   revision checks, checkpoints and immutable exports through MCP.
 - Private montage discovery and editorial review pages.
 - Shared persistent custom fonts; see [font persistence](custom-font-persistence.md).
+- Caption layout defaults and per-video overrides; see [caption controls](caption-controls.md).
 
 Keep extensions in separate commits. Preserve upstream license and authorship.
 Do not publish credentials, account fonts, recordings, transcripts or private
@@ -39,6 +40,5 @@ video generation; test renders also need an approved editorial proposal.
 The approved reference is Nunito Sans, white `#FFFFFF`, and 24 px in settings.
 Choose caption position per video. Send the selected spoken text, sequence,
 omissions, estimated duration and presentation before creating or revising a
-video; only render after approval. The per-video editor already has vertical
-position controls. Position presets, dragging text, and dynamic font choices in
-the directed editor are separate changes, not part of this consolidation.
+video; only render after approval. Caption defaults seed new edits only.
+Existing edits retain their saved styles. Each video can override the defaults.

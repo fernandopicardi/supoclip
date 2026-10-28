@@ -3,9 +3,9 @@ ARG EDITORIAL_BASE=supoclip-editorial-base:local
 FROM ${EDITORIAL_BASE}
 # Patch the reused runtime with the exact Authlib wheel recorded in uv.lock.
 # Keep every other installed dependency, including local transcription and MCP.
-COPY backend/uv.lock /tmp/editorial-uv.lock
-RUN /app/.venv/bin/python -c "import tomllib; p=next(p for p in tomllib.load(open('/tmp/editorial-uv.lock','rb'))['package'] if p['name']=='authlib'); print('authlib=='+p['version']+' --hash='+p['wheels'][0]['hash'])" > /tmp/editorial-security.txt \
+COPY backend/pyproject.toml backend/uv.lock /app/
+RUN /app/.venv/bin/python -c "import tomllib; p=next(p for p in tomllib.load(open('/app/uv.lock','rb'))['package'] if p['name']=='authlib'); print('authlib=='+p['version']+' --hash='+p['wheels'][0]['hash'])" > /tmp/editorial-security.txt \
     && uv --no-config pip install --python /app/.venv/bin/python --no-deps --require-hashes -r /tmp/editorial-security.txt \
-    && rm /tmp/editorial-uv.lock /tmp/editorial-security.txt
+    && rm /tmp/editorial-security.txt
 COPY backend/src/ /app/src/
 COPY mcp/src/ /app/mcp_src/

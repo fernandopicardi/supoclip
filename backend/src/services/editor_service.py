@@ -7,7 +7,6 @@ import logging
 import re
 import subprocess
 import uuid
-from typing import get_args
 
 from ..editor_document import (
     CaptionStyle,
@@ -140,7 +139,7 @@ def make_assets(directory: Path):
     }
 
 
-EDITOR_FONTS = set(get_args(CaptionStyle.model_fields["font"].annotation))
+EDITOR_FONTS = {"TikTokSans-Regular", "TikTokSans-Bold", "Poppins-ExtraBold", "THEBOLDFONT"}
 
 
 def initial_caption_style(
@@ -155,8 +154,12 @@ def initial_caption_style(
     from ..media.captions import get_safe_vertical_position, get_scaled_font_size
 
     template = get_template(task.get("caption_template") or "default")
+    if caption_settings.get("layout"):
+        from ..caption_preferences import apply_caption_layout
+        template = apply_caption_layout(template, caption_settings["layout"])
     font = task.get("font_family") or template["font_family"]
-    if font not in EDITOR_FONTS:
+    from ..font_registry import find_font_path
+    if font not in EDITOR_FONTS and not find_font_path(font, allow_all_user_fonts=True):
         font = template["font_family"] if template["font_family"] in EDITOR_FONTS else "TikTokSans-Regular"
     base_size = caption_settings.get("font_size") or task.get("font_size") or template["font_size"]
     font_px = get_scaled_font_size(int(base_size), width)
@@ -165,6 +168,8 @@ def initial_caption_style(
     position_y = caption_settings.get("position_y") or template.get("position_y") or 0.78
     # Generation centres the text at this pixel row; the editor stores it as a fraction.
     center_px = get_safe_vertical_position(height, int(font_px * 1.5), float(position_y))
+    if caption_settings.get("layout"):
+        center_px = round(height * caption_settings["layout"]["y"])
     return {
         "enabled": enabled,
         "font": font,
@@ -181,7 +186,7 @@ def initial_caption_style(
     }
 
 
-def generated_emphasis(words: list[dict], task: dict) -> set[int]:
+def generated_emphasis(words: list[dict], task: dict, caption_settings: dict | None = None) -> set[int]:
     """Words the generated clip accented (power words, numbers, emoji words).
 
     The editor seeds them as highlights so users see and can toggle them.
@@ -191,6 +196,9 @@ def generated_emphasis(words: list[dict], task: dict) -> set[int]:
     from ..media.captions import emoji_rendering_supported
 
     template = get_template(task.get("caption_template") or "default")
+    if caption_settings and caption_settings.get('layout'):
+        from ..caption_preferences import apply_caption_layout
+        template = apply_caption_layout(template, caption_settings['layout'])
     _, emphasis = annotate_caption_words(
         words,
         enable_emoji=bool(template.get("emoji", True)) and emoji_rendering_supported(),
@@ -455,7 +463,7 @@ async def prepare_editor(ctx, task_id: str, clip_id: str, filename: str):
                 (clip.get("text") or "").split(), timed, metadata["duration"]
             )
             duration = metadata["duration"]
-            emphasis = generated_emphasis(words, task)
+            emphasis = generated_emphasis(words, task, caption_settings)
             original_format = output_format == "original"
             # Vertical clips are generated at 1080x1920; "original" keeps the source size.
             # A baked split or stack is already 1080x1920, so this vertical cover

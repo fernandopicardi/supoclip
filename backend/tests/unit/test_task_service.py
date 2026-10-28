@@ -74,6 +74,7 @@ def build_task_service() -> TaskService:
     service._processing_transaction = lambda _task_id: nullcontext()
     service._task_run_guard = lambda _task_id: nullcontext()
     service.task_repo.get_task_by_id = AsyncMock(return_value={"status": "queued"})
+    service.task_repo.load_source_metadata = AsyncMock(return_value={})
     service.cache_repo.get_cache = AsyncMock(return_value=None)
     service.cache_repo.upsert_cache = AsyncMock()
     service.task_repo.update_task_runtime_metadata = AsyncMock()
@@ -99,6 +100,16 @@ def build_task_service() -> TaskService:
         }
     )
     return service
+
+
+@pytest.mark.asyncio
+async def test_caption_layout_snapshot_reaches_the_clip_renderer(tmp_path):
+    service = build_task_service()
+    service.config.temp_dir = str(tmp_path)
+    layout = {'y': .5, 'wordsPerLine': 2, 'background': True}
+    service.task_repo.load_source_metadata.return_value = {'caption_style': layout}
+    await service.process_task(task_id='task-1', url='upload://source.mp4', source_type='video_url')
+    assert service.video_service.create_single_clip.await_args.kwargs['caption_style'] == layout
 
 
 def test_cache_key_includes_analysis_prompt_version():

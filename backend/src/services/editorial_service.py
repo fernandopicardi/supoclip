@@ -104,13 +104,13 @@ def source_words(user_id: str, source_id: str) -> list[dict]:
     return read_json(item_dir(user_id, 'sources', source_id) / 'transcript.json')['words']
 
 
-def create_edit(user_id: str, source_id: str, title: str) -> dict:
+def create_edit(user_id: str, source_id: str, title: str, captions: dict | None = None) -> dict:
     source = read_json(item_dir(user_id, 'sources', source_id) / 'source.json')
     if source['status'] != 'ready':
         raise ValueError('Wait for the source transcript to be ready')
     edit_id = new_id('edit')
     directory = owner_root(user_id) / 'edits' / edit_id
-    doc = EditorialDocument(source_id=source_id, title=title)
+    doc = EditorialDocument(source_id=source_id, title=title, **({"captions": captions} if captions is not None else {}))
     atomic_json(directory / 'draft.json', {'revision': 0, 'document': doc.model_dump(), 'requests': {}})
     return {'edit_id': edit_id, **get_edit(user_id, edit_id)}
 

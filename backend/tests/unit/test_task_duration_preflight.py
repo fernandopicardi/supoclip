@@ -12,6 +12,7 @@ from src.services.video_service import VideoService
 
 @pytest.fixture
 def creation(monkeypatch):
+    monkeypatch.setattr('src.caption_preferences.load_caption_preferences', AsyncMock(return_value={}))
     billing = {"max_youtube_duration_seconds": 5400, "max_upload_duration_seconds": 5400}
     monkeypatch.setattr(tasks.BillingService, "assert_can_create_task", AsyncMock(return_value=billing))
     monkeypatch.setattr(tasks, "_get_user_id_from_headers", AsyncMock(return_value="user-1"))
@@ -175,6 +176,21 @@ async def test_clip_length_is_persisted_and_queued(monkeypatch, creation, preset
     await tasks.create_task(request, db=None)
     assert tasks._save_task_source_metadata.await_args.args[1]["clip_length"] == preset
     assert queue.enqueue_processing_job.await_args.args[-1] == preset
+
+
+@pytest.mark.asyncio
+async def test_caption_override_is_snapshotted_without_changing_account_defaults(monkeypatch, creation):
+    request, service, _, _ = creation
+    preferences = {'default_font_family': 'NunitoSans', 'default_font_size': 24,
+                   'default_font_color': '#FFFFFF', 'default_caption_style': {'y': .78}}
+    monkeypatch.setattr('src.caption_preferences.load_caption_preferences', AsyncMock(return_value=preferences))
+    request.json.return_value['caption_style'] = {'y': .5, 'wordsPerLine': 2}
+    monkeypatch.setattr(tasks, 'async_get_youtube_video_info', AsyncMock(return_value={'duration': 300}))
+    await tasks.create_task(request, db=None)
+    saved = tasks._save_task_source_metadata.await_args.args[1]['caption_style']
+    assert saved['y'] == .5 and saved['wordsPerLine'] == 2
+    assert preferences['default_caption_style'] == {'y': .78}
+    assert service.create_task_with_source.await_args.kwargs['font_family'] == 'NunitoSans'
 
 
 @pytest.mark.asyncio

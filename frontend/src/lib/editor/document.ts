@@ -12,11 +12,7 @@ export interface CaptionWord {
 }
 export interface CaptionStyle {
   enabled: boolean;
-  font:
-    | "TikTokSans-Regular"
-    | "TikTokSans-Bold"
-    | "Poppins-ExtraBold"
-    | "THEBOLDFONT";
+  font: string;
   size: number;
   color: string;
   accent: string;

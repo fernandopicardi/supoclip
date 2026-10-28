@@ -52,9 +52,8 @@ class Word(Model):
 
 class CaptionStyle(Model):
     enabled: bool = True
-    font: Literal[
-        "TikTokSans-Regular", "TikTokSans-Bold", "Poppins-ExtraBold", "THEBOLDFONT"
-    ] = "Poppins-ExtraBold"
+    font: str = Field(default="Poppins-ExtraBold", min_length=1, max_length=160,
+                      pattern=r"^[A-Za-z0-9][A-Za-z0-9 _.-]*$")
     # 1080-wide units; 132 matches the generation renderer's largest caption.
     size: int = Field(default=54, ge=20, le=132)
     color: str = Field(default="#FFFFFF", pattern=r"^#[0-9a-fA-F]{6}$")

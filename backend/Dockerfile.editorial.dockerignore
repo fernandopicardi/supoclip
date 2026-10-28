@@ -1,6 +1,7 @@
 **
 !backend/
 !backend/uv.lock
+!backend/pyproject.toml
 !backend/src/
 !backend/src/**
 !mcp/

@@ -68,6 +68,17 @@ async def test_drafts_require_task_and_clip_ownership(client, monkeypatch):
     assert (await http.get("/tasks/task/clips/clip/editor")).status_code == 404
 
 
+async def test_draft_rejects_another_accounts_caption_font(client):
+    http, _, doc, directory = client
+    doc['captions']['font'] = 'usr-foreign-private-font'
+    response = await http.patch('/tasks/task/clips/clip/editor',
+        json={'basis': 'clip.mp4', 'revision': 0, 'document': doc})
+    assert response.status_code == 400
+    assert 'unavailable' in response.json()['detail']
+    import json
+    assert json.loads((directory/'draft.json').read_text())['revision'] == 0
+
+
 async def test_revision_and_basis_prevent_stale_writes(client):
     http, service, doc, directory = client
     payload = {"basis": "clip.mp4", "revision": 0, "document": doc}

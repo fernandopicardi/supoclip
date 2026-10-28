@@ -36,6 +36,7 @@ beforeEach(() => {
     if (url.includes("billing-summary")) return Response.json(billingSummary);
     if (url.includes("/api/tasks")) return Response.json({ tasks: [] });
     if (url.includes("/api/fonts")) return Response.json({ fonts: [] });
+    if (url.includes("/api/editorial")) return Response.json({ edits: [] });
     if (url.includes("caption-templates")) return Response.json({ templates: [] });
     if (url.includes("announcements")) return Response.json({ announcements: [] });
     if (url.includes("social")) return Response.json({ enabled: false });

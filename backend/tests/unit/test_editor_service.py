@@ -206,3 +206,4 @@ def test_editor_seeds_the_generated_emphasis_as_highlights():
     emphasis = generated_emphasis(words, {"caption_template": "default"})
     assert {words[i]["text"] for i in emphasis} >= {"90%"}
     assert "of" not in {words[i]["text"] for i in emphasis}
+    assert generated_emphasis(words, {'caption_template': 'default'}, {'layout': {'karaoke': False}}) == set()

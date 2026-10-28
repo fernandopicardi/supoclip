@@ -16,6 +16,9 @@ supoclip-downloads
 LOCAL-INSTALL.md
 **/node_modules
 **/.next
+**/.next-*
+**/test-results
+**/playwright-report
 **/coverage
 **/.venv
 **/__pycache__

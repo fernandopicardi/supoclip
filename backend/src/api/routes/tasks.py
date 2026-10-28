@@ -447,10 +447,17 @@ async def _create_task(request: Request, db: AsyncSession, attempt: SourceAttemp
     font_options = data.get("font_options", {})
     if not isinstance(font_options, dict):
         raise HTTPException(status_code=400, detail="font_options must be an object")
-    font_family = _normalize_font_family(font_options.get("font_family"))
-    font_size = _normalize_font_size(font_options.get("font_size"))
-    font_color = _normalize_font_color(font_options.get("font_color"))
     caption_template = data.get("caption_template", "default")
+    from ...caption_preferences import CaptionLayout, load_caption_preferences
+    preferences = await load_caption_preferences(db, user_id)
+    font_family = _normalize_font_family(font_options.get("font_family", preferences.get("default_font_family")))
+    font_size = _normalize_font_size(font_options.get("font_size", preferences.get("default_font_size")))
+    font_color = _normalize_font_color(font_options.get("font_color", preferences.get("default_font_color")))
+    raw_caption_style = data.get("caption_style", preferences.get("default_caption_style") or None)
+    try:
+        caption_style = CaptionLayout.model_validate(raw_caption_style).model_dump() if raw_caption_style is not None else None
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid caption_style") from exc
     include_broll = data.get("include_broll") is True
     runtime_config = get_config()
     processing_mode = data.get(
@@ -530,6 +537,7 @@ async def _create_task(request: Request, db: AsyncSession, attempt: SourceAttemp
                         {
                             "processing_job_id": processing_job_id,
                             "clip_length": clip_length,
+                            **({"caption_style": caption_style} if caption_style is not None else {}),
                             **_stream_resolution_metadata(stream_metadata),
                         },
                         source_url=raw_source["url"],

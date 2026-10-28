@@ -7,6 +7,7 @@ import pytest
 
 from src.api.routes import editorial
 from src.config import get_config
+from src.database import get_db
 from src.editor_document import atomic_json
 from src.editorial_document import read_json
 from src.services import editorial_service as service
@@ -14,11 +15,16 @@ from src.services import editorial_service as service
 
 @pytest.fixture
 async def editorial_client(tmp_path, monkeypatch):
+    from src import caption_preferences
+    monkeypatch.setattr(caption_preferences, 'load_caption_preferences', AsyncMock(return_value={}))
     monkeypatch.setattr(get_config(), 'temp_dir', str(tmp_path))
     app = FastAPI()
     app.state.queue_adapter = SimpleNamespace(enqueue_job=AsyncMock(return_value='job'))
     app.include_router(editorial.router)
     app.dependency_overrides[editorial.owner] = lambda: 'owner'
+    async def fake_db():
+        yield AsyncMock()
+    app.dependency_overrides[get_db] = fake_db
     source = 'source_' + 'a'*32
     root = service.owner_root('owner')/'sources'/source
     atomic_json(root/'source.json', {'source_id': source, 'sha256': 'abc', 'duration': 300, 'status': 'awaiting_transcript'})
@@ -37,6 +43,34 @@ async def test_transcript_pages_and_windows_keep_ids(editorial_client):
     assert not set(w['id'] for w in page['words']) & set(w['id'] for w in second['words'])
     window = (await http.get(f'/editorial/sources/{source}/transcript?start=4&end=5')).json()
     assert window['words'][0]['id'] == page['words'][4]['id']
+
+
+async def test_caption_defaults_seed_only_new_edits(editorial_client, monkeypatch):
+    from src import caption_preferences
+    http, source, _ = editorial_client
+    preferences = {'default_font_family': 'NunitoSans', 'default_font_size': 24,
+                   'default_caption_style': {'y': .5, 'wordsPerLine': 2}}
+    monkeypatch.setattr(caption_preferences, 'load_caption_preferences', AsyncMock(return_value=preferences))
+    defaults = await http.get('/editorial/caption-defaults')
+    assert defaults.status_code == 200 and defaults.json()['captions']['y'] == .5
+    first = (await http.post('/editorial/edits', json={'source_id': source})).json()
+    assert first['document']['captions']['font'] == 'NunitoSans'
+    assert first['document']['captions']['size'] == 46
+    preferences['default_caption_style']['y'] = .2
+    second = (await http.post('/editorial/edits', json={'source_id': source})).json()
+    assert second['document']['captions']['y'] == .2
+    unchanged = (await http.get(f'/editorial/edits/{first["edit_id"]}')).json()
+    assert unchanged['document']['captions']['y'] == .5
+
+
+async def test_foreign_caption_font_is_rejected_without_changing_edit(editorial_client):
+    http, source, _ = editorial_client
+    edit = (await http.post('/editorial/edits', json={'source_id': source})).json()
+    base = f'/editorial/edits/{edit["edit_id"]}'
+    response = await http.post(base+'/operations', json={'revision': 0, 'request_id': 'foreign-font',
+        'operations': [{'op': 'set_captions', 'captions': {'font': 'usr-foreign-private-font'}}]})
+    assert response.status_code == 400
+    assert (await http.get(base)).json()['revision'] == 0
 
 
 async def test_ownership_namespace_prevents_read_and_write(editorial_client):

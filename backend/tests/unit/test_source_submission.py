@@ -24,6 +24,11 @@ SECRET = "deadbeefSECRET"
 PRIVATE = "PRIVATEKEY"
 
 
+@pytest.fixture(autouse=True)
+def caption_preferences(monkeypatch):
+    monkeypatch.setattr('src.caption_preferences.load_caption_preferences', AsyncMock(return_value={}))
+
+
 def test_client_label_recognizes_ios_and_treats_everything_else_as_web():
     assert client_label(None) == "web"
     assert client_label("Mozilla/5.0") == "web"

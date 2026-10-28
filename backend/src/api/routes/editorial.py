@@ -153,12 +153,23 @@ async def schema(user_id: str = Depends(owner)):
             'atomic': True, 'word_edge_warning': 'Word timings are approximate; inspect context and listen to joins'}
 
 
+@router.get('/caption-defaults')
+async def caption_defaults(user_id: str = Depends(owner), db: AsyncSession = Depends(get_db)):
+    from ...caption_preferences import load_caption_preferences, editorial_defaults
+    return {'captions': editorial_defaults(await load_caption_preferences(db, user_id))}
+
+
 @router.post('/edits', status_code=201)
-async def create_edit(request: Request, user_id: str = Depends(owner)):
+async def create_edit(request: Request, user_id: str = Depends(owner), db: AsyncSession = Depends(get_db)):
     body = await payload(request)
     directory(user_id, 'sources', body.get('source_id', ''))
     try:
-        return await run_in_thread(service.create_edit, user_id, body['source_id'], body.get('title', ''))
+        from ...caption_preferences import load_caption_preferences, editorial_defaults
+        preferences = await load_caption_preferences(db, user_id)
+        captions = editorial_defaults(preferences)
+        from ...caption_preferences import validate_caption_font
+        validate_caption_font(captions['font'], user_id)
+        return await run_in_thread(service.create_edit, user_id, body['source_id'], body.get('title', ''), captions)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
 
@@ -182,9 +193,15 @@ async def apply_operations(edit_id: str, request: Request, user_id: str = Depend
     doc = EditorialDocument.model_validate(read_json(path/'draft.json')['document'])
     source = read_json(directory(user_id, 'sources', doc.source_id)/'source.json')
     words = await run_in_thread(service.source_words, user_id, doc.source_id)
+    def update(current):
+        updated = edit_operations(current, body.get('operations', []), source['duration'], words)
+        if any(op.get('op') == 'set_captions' for op in body.get('operations', [])):
+            from ...caption_preferences import validate_caption_font
+            validate_caption_font(updated.captions.font, user_id)
+        return updated
     try:
         return await run_in_thread(change, path, revision(body), request_id(body), body,
-            lambda current: edit_operations(current, body.get('operations', []), source['duration'], words))
+            update)
     except RevisionConflict as exc:
         raise HTTPException(409, str(exc)) from None
     except (ValueError, TypeError) as exc:

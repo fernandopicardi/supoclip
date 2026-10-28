@@ -108,7 +108,7 @@ async def save(
     task_id: str, clip_id: str, request: Request, db: AsyncSession = Depends(get_db)
 ):
     service = TaskService(db)
-    await _require_task_owner(request, service, db, task_id)
+    task = await _require_task_owner(request, service, db, task_id)
     payload = await _read_json_object(request)
     # Restore missing files before checking the local draft revision.
     clip, directory = await context(request, db, task_id, clip_id)
@@ -138,6 +138,8 @@ async def save(
         ):
             raise ValueError("Invalid draft revision")
         document = EditDocument.model_validate(payload.get("document"))
+        from ...caption_preferences import validate_caption_font
+        validate_caption_font(document.captions.font, task['user_id'])
         result = await run_in_thread(
             save_document, directory, document, revision, state["duration"]
         )
@@ -198,6 +200,9 @@ async def start_export(
         document = EditDocument.model_validate(
             payload.get("document")
         ).validate_duration(state["duration"])
+        task = await _require_task_owner(request, TaskService(db), db, task_id)
+        from ...caption_preferences import validate_caption_font
+        validate_caption_font(document.captions.font, task['user_id'])
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     with editor_lock(directory):

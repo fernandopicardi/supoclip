@@ -462,6 +462,8 @@ class TaskService(ClipEditingMixin):
             )
 
             # Render clips incrementally: render, save, notify one at a time
+            task_metadata = await self.task_repo.load_source_metadata(self.db, task_id)
+            caption_style = task_metadata.get("caption_style")
             segments_to_render = result.get("segments_to_render", [])
             if not segments_to_render:
                 await self.cache_repo.upsert_cache(
@@ -551,6 +553,7 @@ class TaskService(ClipEditingMixin):
                     max_clip_seconds=clip_duration(clip_length).maximum,
                     include_broll=include_broll,
                     broll_session=broll_session,
+                    **({"caption_style": caption_style} if caption_style is not None else {}),
                 )
                 pending_clip_path = Path(clip_info["path"]) if clip_info else None
                 await check_cancelled()

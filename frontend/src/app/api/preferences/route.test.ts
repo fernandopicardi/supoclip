@@ -1,3 +1,4 @@
+import { DEFAULT_CAPTION_LAYOUT } from "@/lib/caption-layout";
 import { GET, PATCH } from "./route";
 import { getPrismaClient } from "@/server/prisma";
 import { getServerSession } from "@/server/session";
@@ -48,6 +49,7 @@ describe("/api/preferences", () => {
       fontColor: "#123456",
       notifyOnCompletion: false,
       clipLength: "auto",
+      captionStyle: DEFAULT_CAPTION_LAYOUT,
     });
   });
 
@@ -124,6 +126,7 @@ describe("/api/preferences", () => {
       fontColor: "#FFFFFF",
       notifyOnCompletion: true,
       clipLength: "auto",
+      captionStyle: DEFAULT_CAPTION_LAYOUT,
     });
   });
   it.each([{ fontSize: 0 }, { fontSize: null }, { fontSize: 24.5 }, { fontFamily: false }, { fontColor: "" }, null, []])("rejects invalid falsy or non-object preferences: %j", async (body) => {
@@ -148,6 +151,32 @@ it("saves clip length without overwriting unrelated preferences", async () => {
   expect(response.status).toBe(200);
   expect((await response.json()).clipLength).toBe("long");
   expect(update.mock.calls[0][0].data).toEqual({ default_clip_length: "long" });
+});
+
+it("persists the caption layout and returns it on the next read", async () => {
+  vi.mocked(getServerSession).mockResolvedValue({ user: { id: "user-1" } } as never);
+  const saved = { ...DEFAULT_CAPTION_LAYOUT, y: 0.5, wordsPerLine: 2, background: true, karaoke: true, accent: "#FF6600" };
+  const stored = { default_font_family: "NunitoSans", default_font_size: 24, default_font_color: "#FFFFFF", default_caption_style: saved };
+  const update = vi.fn().mockResolvedValue(stored);
+  vi.mocked(getPrismaClient).mockReturnValue({ user: { update, findUnique: vi.fn().mockResolvedValue(stored) } } as never);
+  const response = await PATCH(new Request("http://localhost/api/preferences", {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ captionStyle: saved }),
+  }) as never);
+  expect(response.status).toBe(200);
+  expect(update.mock.calls[0][0]).toMatchObject({ where: { id: "user-1" }, data: { default_caption_style: saved } });
+  expect(Object.keys(update.mock.calls[0][0].data)).toEqual(["default_caption_style"]);
+  expect((await (await GET()).json()).captionStyle).toEqual(saved);
+});
+
+it.each([{ y: 1 }, { wordsPerLine: 0 }, { background: "false" }, { accent: "red" }, { unknown: true }])("rejects invalid caption layout: %j", async (captionStyle) => {
+  vi.mocked(getServerSession).mockResolvedValue({ user: { id: "user-1" } } as never);
+  const update = vi.fn();
+  vi.mocked(getPrismaClient).mockReturnValue({ user: { update } } as never);
+  const response = await PATCH(new Request("http://localhost/api/preferences", {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ captionStyle }),
+  }) as never);
+  expect(response.status).toBe(400);
+  expect(update).not.toHaveBeenCalled();
 });
 
 it.each([null, "", "custom", 120, true, {}])("rejects invalid clip length: %j", async (clipLength) => {
