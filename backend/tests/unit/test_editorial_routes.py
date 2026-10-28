@@ -185,6 +185,12 @@ async def test_preview_save_checkpoint_retry_conflict_and_media_range(editorial_
     partial = await http.get(f'/editorial/sources/{source}/media', headers={'Range': 'bytes=2-5'})
     assert partial.status_code == 206 and partial.content == b'2345'
     assert partial.headers['content-range'] == 'bytes 2-5/10'
+    (path/'browser.mp4').write_bytes(b'indexed-body')
+    atomic_json(path/'browser-media.json', {'version': 1, 'source_sha256': 'abc',
+                'packet_verified': True, 'bytes': 12})
+    cached = await http.get(f'/editorial/sources/{source}/media', headers={'Range': 'bytes=2-5'})
+    assert cached.status_code == 206 and cached.content == b'dexe'
+    assert (path/'media.mp4').read_bytes() == b'0123456789'
     edit = (await http.post('/editorial/edits', json={'source_id': source})).json()
     base = f'/editorial/edits/{edit["edit_id"]}'
     preview = (await http.get(base+'/preview-data')).json()

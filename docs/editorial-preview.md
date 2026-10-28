@@ -31,6 +31,16 @@ Old documents default to a black background and retain their styles. Select
 composes the background from the cropped foreground and burns captions last.
 No schema migration or additional package is required.
 
+Some screen recordings use fragmented MP4 that the browser cannot seek reliably.
+For these sources, explicitly run `python -m src.browser_media <source-directory>`
+inside the backend runtime. This creates an indexed browser copy with stream
+copy, checks every compressed packet and its PTS/DTS, and preserves the original
+media and transcript. It does not encode a video, change an edit, or create an
+export. Preparation is never triggered by opening a page. The private media
+route selects the copy only when its manifest matches the source SHA and size;
+the export worker continues to use the original. Copies live in the same
+persistent upload volume. Remove the copy/manifest to revert to the original.
+
 Private endpoints:
 
 - `GET /editorial/edits/{id}/preview-data`: original metadata, words and caption looks.

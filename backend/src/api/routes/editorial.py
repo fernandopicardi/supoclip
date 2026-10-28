@@ -99,7 +99,8 @@ async def get_source(source_id: str, user_id: str = Depends(owner)):
 
 @router.get('/sources/{source_id}/media')
 async def source_media(source_id: str, user_id: str = Depends(owner)):
-    path = directory(user_id, 'sources', source_id)/'media.mp4'
+    from ...browser_media import browser_media
+    path = browser_media(directory(user_id, 'sources', source_id))
     if not path.is_file():
         raise HTTPException(404, 'Media not found')
     return FileResponse(path, media_type='video/mp4', headers={'Cache-Control': 'private, no-store'})
