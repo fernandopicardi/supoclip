@@ -97,6 +97,14 @@ async def get_source(source_id: str, user_id: str = Depends(owner)):
     return read_json(directory(user_id, 'sources', source_id)/'source.json')
 
 
+@router.get('/sources/{source_id}/media')
+async def source_media(source_id: str, user_id: str = Depends(owner)):
+    path = directory(user_id, 'sources', source_id)/'media.mp4'
+    if not path.is_file():
+        raise HTTPException(404, 'Media not found')
+    return FileResponse(path, media_type='video/mp4', headers={'Cache-Control': 'private, no-store'})
+
+
 @router.get('/sources')
 async def list_sources(limit: int = 30, user_id: str = Depends(owner)):
     if not 1 <= limit <= 100:
@@ -178,6 +186,47 @@ async def create_edit(request: Request, user_id: str = Depends(owner), db: Async
 async def get_edit(edit_id: str, user_id: str = Depends(owner)):
     directory(user_id, 'edits', edit_id)
     return await run_in_thread(service.get_edit, user_id, edit_id)
+
+
+@router.get('/edits/{edit_id}/preview-data')
+async def preview_data(edit_id: str, user_id: str = Depends(owner)):
+    path = directory(user_id, 'edits', edit_id)
+    doc = EditorialDocument.model_validate(read_json(path/'draft.json')['document'])
+    source = read_json(directory(user_id, 'sources', doc.source_id)/'source.json')
+    from ...services.editor_service import caption_looks
+    return {'source': source, 'words': await run_in_thread(service.source_words, user_id, doc.source_id),
+            'captionLooks': caption_looks()}
+
+
+@router.post('/edits/{edit_id}/draft')
+async def save_draft(edit_id: str, request: Request, user_id: str = Depends(owner)):
+    path, body = directory(user_id, 'edits', edit_id), await payload(request)
+    expected, retry_id = revision(body), request_id(body)
+    def update(current):
+        updated = EditorialDocument.model_validate(body.get('document'))
+        if updated.source_id != current.source_id:
+            raise ValueError('A montage cannot change its source')
+        source = read_json(directory(user_id, 'sources', current.source_id)/'source.json')
+        updated.validate_source(source['duration'])
+        from ...caption_preferences import validate_caption_font
+        validate_caption_font(updated.captions.font, user_id)
+        words = service.source_words(user_id, current.source_id)
+        valid = {clip.id+':'+w['id'] for clip in updated.clips for w in words
+                 if w['start'] >= clip.start and w['end'] <= clip.end}
+        for key, text in updated.word_text.items():
+            if current.word_text.get(key) == text:
+                continue
+            if key not in valid or not isinstance(text, str) or not text.strip() or len(text) > 200:
+                raise ValueError('Caption correction must reference a word in its clip (1–200 characters)')
+        checkpoint = hashlib.sha256(retry_id.encode()).hexdigest()[:32]
+        atomic_json(path/f'checkpoint-{checkpoint}.json', {'revision': expected, 'document': current.model_dump()})
+        return updated
+    try:
+        return await run_in_thread(change, path, expected, retry_id, body, update)
+    except RevisionConflict as exc:
+        raise HTTPException(409, str(exc)) from None
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc)) from None
 
 
 @router.get('/edits')

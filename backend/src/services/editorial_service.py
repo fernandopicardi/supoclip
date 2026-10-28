@@ -175,8 +175,7 @@ def render_editorial(directory: Path, job_id: str, snapshot: dict, user_id: str)
         crop_h = min(source['height'], max(2, round(ch/scale/2)*2))
         crop_x = max(0, min(source['width']-crop_w, round((rw-cw)*framing.x/scale/2)*2))
         crop_y = max(0, min(source['height']-crop_h, round((rh-ch)*framing.y/scale/2)*2))
-        geometry = (f'crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={cw}:{ch},'
-                    f'pad={width}:{height}:{(width-cw)*framing.x}:{(height-ch)*framing.y}:black,setsar=1')
+        geometry = f'crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={cw}:{ch}'
         for start, end in kept_ranges(clip):
             index, length = len(videos), end-start
             target_frames = max(1, round((cursor+length)*fps)-frames)
@@ -184,7 +183,9 @@ def render_editorial(directory: Path, job_id: str, snapshot: dict, user_id: str)
             # Seek each occurrence independently. Decoding a late first clip
             # from a single shared input buffers all earlier reordered clips.
             inputs += ['-threads', '1', '-ss', str(start), '-t', str(length), '-i', str(source_dir/'media.mp4')]
-            filters.append(f'[{index}:v:0]setpts=PTS-STARTPTS,fps={fps},{geometry},'
+            filters.append(f'[{index}:v:0]setpts=PTS-STARTPTS,fps={fps},{geometry},setsar=1[fg{index}]')
+            filters.append(background_filter(index, width, height, cw, ch, framing.x, framing.y, document.background))
+            filters.append(f'[framed{index}]'
                            f'tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame={target_frames},setpts=N/({fps}*TB)[v{index}]')
             videos.append(f'[v{index}]')
             if source['has_audio']:
@@ -234,6 +235,19 @@ def render_editorial(directory: Path, job_id: str, snapshot: dict, user_id: str)
     finally:
         temporary.unlink(missing_ok=True)
         graph.unlink(missing_ok=True)
+
+
+def background_filter(index: int, width: int, height: int, cw: int, ch: int,
+                      x: float, y: float, background: str) -> str:
+    """Compose the same cropped foreground and backdrop used by the browser preview."""
+    # YUV420 pad/overlay positions are aligned to chroma pixels.
+    px, py = int((width-cw)*x/2)*2, int((height-ch)*y/2)*2
+    if background != 'blur':
+        return f'[fg{index}]pad={width}:{height}:{px}:{py}:black[framed{index}]'
+    return (f'[fg{index}]split=2[back{index}][front{index}];'
+            f'[back{index}]scale={width}:{height}:force_original_aspect_ratio=increase,'
+            f'crop={width}:{height},boxblur=24:2:12:1,eq=brightness=-0.08:saturation=0.8[blur{index}];'
+            f'[blur{index}][front{index}]overlay={px}:{py}:shortest=1[framed{index}]')
 
 
 async def export_editorial(ctx, user_id: str, edit_id: str, job_id: str):

@@ -19,6 +19,7 @@ async function proxy(request: NextRequest, context: Context) {
     headers: {
       ...(request.headers.get("content-type") ? { "content-type": request.headers.get("content-type")! } : {}),
       ...(request.headers.get("range") ? { range: request.headers.get("range")! } : {}),
+      ...(request.headers.get("if-range") ? { "if-range": request.headers.get("if-range")! } : {}),
     },
     ...(request.method === "GET" ? {} : { body: await request.arrayBuffer() }),
   });

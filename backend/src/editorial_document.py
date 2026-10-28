@@ -44,6 +44,7 @@ class EditorialDocument(Model):
     clips: list[Clip] = Field(default_factory=list, max_length=500)
     captions: CaptionStyle = Field(default_factory=CaptionStyle)
     framing: Framing = Field(default_factory=Framing)
+    background: Literal['black', 'blur'] = 'black'
     # Caption corrections belong to word occurrences, not every repeated word.
     word_text: dict[str, str] = Field(default_factory=dict, max_length=20000)
 

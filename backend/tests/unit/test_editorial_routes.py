@@ -175,3 +175,43 @@ async def test_new_source_uses_whisper_even_if_default_provider_is_hosted(tmp_pa
     assert len(called) == 1 and called[0][0] == root/'media.mp4'
     assert read_json(root/'source.json')['status'] == 'ready'
     assert read_json(root/'transcript.json')['origin'] == 'local_whisper'
+
+
+async def test_preview_save_checkpoint_retry_conflict_and_media_range(editorial_client):
+    import hashlib
+    http, source, app = editorial_client
+    path = service.item_dir('owner', 'sources', source)
+    (path/'media.mp4').write_bytes(b'0123456789')  # No encoder or generated video.
+    partial = await http.get(f'/editorial/sources/{source}/media', headers={'Range': 'bytes=2-5'})
+    assert partial.status_code == 206 and partial.content == b'2345'
+    assert partial.headers['content-range'] == 'bytes 2-5/10'
+    edit = (await http.post('/editorial/edits', json={'source_id': source})).json()
+    base = f'/editorial/edits/{edit["edit_id"]}'
+    preview = (await http.get(base+'/preview-data')).json()
+    assert len(preview['words']) == 200 and 'default' in preview['captionLooks']
+    document = edit['document'] | {'background': 'blur', 'clips': [{'id': 'a', 'start': 1, 'end': 5, 'cuts': []}]}
+    document['word_text'] = {'a:'+preview['words'][1]['id']: 'correção'}
+    body = {'revision': 0, 'request_id': 'save-preview', 'document': document}
+    result = await http.post(base+'/draft', json=body)
+    assert result.status_code == 200 and result.json()['revision'] == 1
+    replay = await http.post(base+'/draft', json=body)
+    assert replay.json()['replayed'] and replay.json()['revision'] == 1
+    checkpoint = hashlib.sha256(b'save-preview').hexdigest()[:32]
+    saved = read_json(service.item_dir('owner', 'edits', edit['edit_id'])/f'checkpoint-{checkpoint}.json')
+    assert saved['revision'] == 0 and saved['document'] == edit['document']
+    assert (await http.post(base+'/draft', json=body | {'request_id': 'stale'})).status_code == 409
+    assert (await http.post(base+'/draft', json=body | {'document': document | {'background': 'black'}})).status_code == 409
+    bad = document | {'source_id': 'source_'+'b'*32}
+    assert (await http.post(base+'/draft', json={'revision': 1, 'request_id': 'foreign', 'document': bad})).status_code == 400
+    bad = document | {'word_text': {'a:invented': 'inválida'}}
+    assert (await http.post(base+'/draft', json={'revision': 1, 'request_id': 'bad-word', 'document': bad})).status_code == 400
+    bad = document | {'captions': document['captions'] | {'font': 'usr-foreign-private-font'}}
+    assert (await http.post(base+'/draft', json={'revision': 1, 'request_id': 'bad-font', 'document': bad})).status_code == 400
+    bad = document | {'clips': [{'id': 'a', 'start': 2, 'end': 5, 'cuts': [{'id': 'c', 'start': 1, 'end': 3}]}]}
+    assert (await http.post(base+'/draft', json={'revision': 1, 'request_id': 'bad-cut', 'document': bad})).status_code == 400
+    assert (await http.get(base)).json()['revision'] == 1
+    app.state.queue_adapter.enqueue_job.assert_not_awaited()
+    app.dependency_overrides[editorial.owner] = lambda: 'outsider'
+    assert (await http.get(f'/editorial/sources/{source}/media')).status_code == 404
+    assert (await http.get(base+'/preview-data')).status_code == 404
+    assert (await http.post(base+'/draft', json=body)).status_code == 404

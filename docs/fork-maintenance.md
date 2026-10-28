@@ -13,6 +13,7 @@ baseline. Keep upstream `main` available independently.
 - Private montage discovery and editorial review pages.
 - Shared persistent custom fonts; see [font persistence](custom-font-persistence.md).
 - Caption layout defaults and per-video overrides; see [caption controls](caption-controls.md).
+- Interactive montage review and explicit save before export; see [montage preview](editorial-preview.md).
 
 Keep extensions in separate commits. Preserve upstream license and authorship.
 Do not publish credentials, account fonts, recordings, transcripts or private

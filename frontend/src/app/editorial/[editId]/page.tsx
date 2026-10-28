@@ -1,112 +1,114 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { EditorialPreview } from "@/components/editorial-preview";
+import { MontageControls, type MontageFont } from "@/components/montage-controls";
+import { timecode } from "@/lib/editor/document";
+import { Montage, montageDuration, montageError, montageRanges, PreviewData } from "@/lib/editorial-preview";
 
-type Cut = { id: string; start: number; end: number };
-type Clip = { id: string; start: number; end: number; cuts: Cut[] };
 type Export = { job_id: string; status: string; revision: number; progress?: number };
-type Edit = {
-  edit_id: string;
-  revision: number;
-  document: { title: string; clips: Clip[] };
-  timeline: { playback_seconds: number };
-  exports: Export[];
-};
+type Edit = { edit_id: string; revision: number; document: Montage; exports: Export[] };
+const button = "rounded-lg border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40";
 
 export default function EditorialPage({ params }: { params: Promise<{ editId: string }> }) {
   const { editId } = use(params);
   const base = `/api/editorial/edits/${encodeURIComponent(editId)}`;
-  const [edit, setEdit] = useState<Edit | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState<Edit | null>(null), [draft, setDraft] = useState<Montage | null>(null);
+  const [data, setData] = useState<PreviewData | null>(null), [fonts, setFonts] = useState<MontageFont[]>([]);
+  const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [seekClip, setSeekClip] = useState<{ id: string; tick: number } | null>(null);
+  const pending = useRef<{ document: string; revision: number; request_id: string } | null>(null);
+  const pendingExport = useRef<{ revision: number; request_id: string } | null>(null);
+  const dirty = !!draft && JSON.stringify(draft) !== JSON.stringify(edit?.document);
+  const validation = draft && data ? montageError(draft, data.source.duration) : "";
 
   const request = useCallback(async (url: string, body?: unknown) => {
     const response = await fetch(url, body === undefined ? { cache: "no-store" } : {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
-    const data = await response.json();
+    const result = await response.json();
     if (!response.ok) throw new Error(response.status === 409
-      ? "A montagem mudou. Atualize antes de continuar. Seus ajustes não foram sobrescritos."
-      : String(data.detail || data.error || "Não foi possível concluir a operação."));
-    return data;
+      ? "A montagem mudou em outra sessão. Seus ajustes continuam nesta tela. Atualize somente quando decidir descartá-los."
+      : typeof result.detail === "string" ? result.detail : "Não foi possível concluir a operação. Confira os valores e tente novamente.");
+    return result;
   }, []);
 
-  const refresh = useCallback(async () => {
-    try { setEdit(await request(base)); setError(""); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao abrir montagem."); }
+  useEffect(() => {
+    let alive = true;
+    setEdit(null); setDraft(null); setData(null);
+    void Promise.all([request(base), request(`${base}/preview-data`), request("/api/fonts")]).then(([loaded, preview, fontData]) => {
+      if (alive) { setEdit(loaded); setDraft(structuredClone(loaded.document)); setData(preview); setFonts(fontData.fonts); setError(""); }
+    }).catch(cause => { if (alive) setError(cause instanceof Error ? cause.message : "Falha ao abrir montagem."); });
+    return () => { alive = false; };
   }, [base, request]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!dirty) return;
+    const protect = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [dirty]);
 
-  async function apply(operations: unknown[]) {
-    if (!edit || busy) return;
+  async function refresh() {
+    if (dirty && !window.confirm("Descartar os ajustes que ainda não foram salvos e carregar a versão do servidor?")) return;
     setBusy(true);
-    try {
-      await request(`${base}/checkpoints`, { revision: edit.revision, request_id: crypto.randomUUID() });
-      await request(`${base}/operations`, { revision: edit.revision, request_id: crypto.randomUUID(), operations });
-      await refresh();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao salvar."); }
+    try { const loaded = await request(base); setEdit(loaded); setDraft(structuredClone(loaded.document)); pending.current = null; setError(""); setNotice("Montagem atualizada."); }
+    catch (cause) { setError(String(cause instanceof Error ? cause.message : cause)); }
     finally { setBusy(false); }
   }
-
-  async function exportVideo() {
-    if (!edit || busy) return;
-    setBusy(true);
+  async function save() {
+    if (!edit || !draft || busy || validation || !dirty) return;
+    setBusy(true); setError("");
+    const serialized = JSON.stringify(draft);
+    if (!pending.current || pending.current.document !== serialized || pending.current.revision !== edit.revision)
+      pending.current = { document: serialized, revision: edit.revision, request_id: crypto.randomUUID() };
     try {
-      await request(`${base}/exports`, { revision: edit.revision, request_id: crypto.randomUUID() });
-      await refresh();
+      const result = await request(`${base}/draft`, { revision: edit.revision, request_id: pending.current.request_id, document: draft });
+      setEdit({ ...edit, ...result }); setDraft(structuredClone(result.document)); pending.current = null;
+      setNotice("Montagem salva. A versão anterior foi preservada. Você já pode exportar.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao salvar. Seus ajustes continuam nesta tela."); }
+    finally { setBusy(false); }
+  }
+  async function exportVideo() {
+    if (!edit || busy || dirty || validation || !draft?.clips.length) return;
+    setBusy(true); setError("");
+    if (pendingExport.current?.revision !== edit.revision) pendingExport.current = { revision: edit.revision, request_id: crypto.randomUUID() };
+    try {
+      await request(`${base}/exports`, pendingExport.current);
+      const loaded = await request(base); setEdit(loaded); pendingExport.current = null;
+      setNotice("Exportação solicitada. Use Atualizar montagem para consultar o progresso.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao exportar."); }
     finally { setBusy(false); }
   }
+  const job = edit?.exports.find(j => j.job_id === selectedJob && j.status === "completed");
+  const duration = draft ? montageDuration(montageRanges(draft)) : 0;
+  const activeExport = edit?.exports.some(j => ["queued", "rendering", "processing"].includes(j.status));
 
-  const completed = edit?.exports.filter((job) => job.status === "completed") ?? [];
-  const preview = completed.find((job) => job.job_id === selectedJob) ?? completed[0];
-  const button = "rounded border px-3 py-2 text-sm disabled:opacity-40";
-
-  return <main className="mx-auto max-w-5xl space-y-5 p-6">
-    <Link href="/list" className="text-sm underline">Voltar aos projetos</Link>
-    <h1 className="text-2xl font-semibold">{edit?.document.title || "Montagem dirigida"}</h1>
+  return <main className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
+    <Link href="/list" className="text-sm underline" onClick={event => { if (dirty && !window.confirm("Sair e descartar os ajustes ainda não salvos?")) event.preventDefault(); }}>Voltar aos projetos</Link>
+    <h1 className="text-2xl font-semibold">{draft?.title || "Montagem dirigida"}</h1>
+    <p className="text-sm text-muted-foreground">Revise a prévia, ajuste e salve a montagem. Exporte quando estiver satisfeito com o resultado.</p>
     {error && <p role="alert" className="rounded border border-red-500 p-3">{error}</p>}
-    <div className="flex flex-wrap items-center gap-3">
-      <button className={button} onClick={() => void refresh()} disabled={busy}>Atualizar montagem</button>
-      <button className={button} onClick={() => void exportVideo()} disabled={busy || !edit?.document.clips.length}>Exportar versão atual</button>
-      {edit && <span>{edit.document.clips.length} trechos · {edit.timeline.playback_seconds.toFixed(2)} segundos</span>}
+    {notice && <p role="status" className="rounded border p-3">{notice}</p>}
+    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3 shadow-sm">
+      <button className={button} onClick={() => void refresh()} disabled={busy || !edit}>Atualizar montagem</button>
+      <button className={`${button} bg-primary text-primary-foreground`} onClick={() => void save()} disabled={busy || !dirty || !!validation}>Salvar montagem</button>
+      <button className={button} onClick={() => void exportVideo()} disabled={busy || dirty || !!validation || !draft?.clips.length || activeExport}>Exportar versão salva</button>
+      <span role="status" className="text-sm">{dirty ? "Ajustes não salvos" : "Montagem salva"} · {timecode(duration)}</span>
+      {dirty && <span className="text-xs">Salve para liberar a exportação.</span>}
     </div>
-    {preview && <section className="space-y-2">
-      {preview.revision !== edit?.revision && <p>A prévia mostra uma versão anterior. Exporte a montagem atual para conferir os novos ajustes.</p>}
-      <video key={preview.job_id} controls preload="metadata" className="mx-auto max-h-[70vh] max-w-full" src={`${base}/exports/${preview.job_id}/file`} />
-      <a className="underline" href={`${base}/exports/${preview.job_id}/file`} download>Baixar vídeo</a>
-    </section>}
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Trechos na ordem de reprodução</h2>
-      <p className="text-sm">Início, fim e cortes usam segundos do vídeo original. Revise as emendas pelo áudio. Cada salvamento preserva uma cópia da montagem anterior.</p>
-      {edit?.document.clips.map((clip, index) => <form key={`${clip.id}-${edit.revision}`} className="space-y-3 rounded border p-4" onSubmit={(event) => {
-        event.preventDefault(); const data = new FormData(event.currentTarget);
-        void apply([{ op: "set_clip_range", clip_id: clip.id, start: Number(data.get("start")), end: Number(data.get("end")) }]);
-      }}>
-        <div className="flex flex-wrap items-end gap-3">
-          <strong>Trecho {index + 1}</strong>
-          <label>Início <input className="ml-2 w-28 rounded border bg-transparent p-1" name="start" type="number" step="0.001" min="0" required defaultValue={clip.start} /></label>
-          <label>Fim <input className="ml-2 w-28 rounded border bg-transparent p-1" name="end" type="number" step="0.001" min="0" required defaultValue={clip.end} /></label>
-          <button className={button} disabled={busy}>Salvar limites</button>
-          <button type="button" className={button} disabled={busy || index === 0} onClick={() => void apply([{ op: "move_clip", clip_id: clip.id, index: index - 1 }])}>Mover para cima</button>
-          <button type="button" className={button} disabled={busy || index === edit.document.clips.length - 1} onClick={() => void apply([{ op: "move_clip", clip_id: clip.id, index: index + 1 }])}>Mover para baixo</button>
-        </div>
-        {clip.cuts.map((cut) => <div key={cut.id} className="flex items-center gap-3 text-sm">
-          <span>Corte interno: {cut.start.toFixed(3)}–{cut.end.toFixed(3)}s</span>
-          <button className={button} type="button" disabled={busy} onClick={() => void apply([{ op: "remove_cut", clip_id: clip.id, cut_id: cut.id }])}>Recuperar esta fala</button>
-        </div>)}
-      </form>)}
-    </section>
-    {!!edit?.exports.length && <section className="space-y-2">
-      <h2 className="text-lg font-semibold">Exportações</h2>
-      {edit.exports.map((job) => <div key={job.job_id} className="flex items-center gap-3 text-sm">
-        <span>Versão {job.revision}: {job.status} {job.progress !== undefined ? `${job.progress}%` : ""}</span>
-        {job.status === "completed" && <button className={button} onClick={() => setSelectedJob(job.job_id)}>Ver esta versão</button>}
-      </div>)}
-      <p className="text-sm">Use Atualizar montagem para consultar o progresso.</p>
+    {draft && data && <div className="grid items-start gap-6 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)]">
+      <div className="lg:sticky lg:top-24"><EditorialPreview document={draft} data={data} seekClip={seekClip} /></div>
+      <MontageControls document={draft} data={data} fonts={fonts} disabled={busy} validation={validation}
+        onChange={value => { setDraft(value); setNotice(""); }} onSeek={id => setSeekClip({ id, tick: Date.now() })} />
+    </div>}
+    {!!edit?.exports.length && <section className="space-y-3 rounded-xl border p-4">
+      <h2 className="text-lg font-semibold">Exportações anteriores</h2>
+      <p className="text-sm text-muted-foreground">Cada arquivo corresponde à revisão indicada. A prévia acima mostra os ajustes atuais.</p>
+      {edit.exports.map(j => <div key={j.job_id} className="flex flex-wrap items-center gap-3 text-sm"><span>Revisão {j.revision}: {j.status} {j.progress !== undefined ? `${j.progress}%` : ""}</span>{j.status === "completed" && <button className={button} onClick={() => setSelectedJob(j.job_id)}>Abrir exportação da revisão {j.revision}</button>}</div>)}
+      {job && <div className="space-y-2"><video controls preload="metadata" className="max-h-[60vh] max-w-full" src={`${base}/exports/${job.job_id}/file`} /><a className="underline" href={`${base}/exports/${job.job_id}/file`} download>Baixar esta exportação</a></div>}
     </section>}
   </main>;
 }
