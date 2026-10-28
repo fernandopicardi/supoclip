@@ -1,0 +1,14 @@
+# Keep uploaded fonts outside container writable layers and share them with renders.
+# Apply last, after local/GPU/editorial overrides. Bundled fonts stay in the image.
+services:
+  backend:
+    volumes:
+      - custom_fonts:/app/fonts/users
+  worker:
+    volumes:
+      - custom_fonts:/app/fonts/users
+
+volumes:
+  custom_fonts:
+    name: supoclip_custom_fonts
+    external: true
