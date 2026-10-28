@@ -23,6 +23,9 @@ class Config:
         self.ollama_api_key = self._get_runtime_setting("OLLAMA_API_KEY")
 
         self.whisper_model = os.getenv("WHISPER_MODEL") or os.getenv("WHISPER_MODEL_SIZE", "base")
+        self.whisper_local_url = os.getenv("WHISPER_LOCAL_URL", "").strip().rstrip("/")
+        self.whisper_local_timeout_seconds = max(60, int(os.getenv("WHISPER_LOCAL_TIMEOUT_SECONDS", "10800")))
+        self.worker_max_jobs = max(1, int(os.getenv("WORKER_MAX_JOBS", "4")))
         self.transcription_provider = self._normalize_transcription_provider(
             os.getenv("TRANSCRIPTION_PROVIDER", "assemblyai")
         )

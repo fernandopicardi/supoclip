@@ -489,8 +489,12 @@ def _get_missing_llm_key_error(model_name: str, runtime_config: Config) -> Optio
     return None
 
 
-def _uses_native_output(model_name: str) -> bool:
+def _uses_native_output(model_name: str, resolved_model: Model | str | None = None) -> bool:
     provider, name = _split_llm_name(model_name)
+    if provider == "ollama" and isinstance(resolved_model, OllamaModel):
+        # Local Ollama enforces JSON Schema at generation time. Its profile
+        # disables this for cloud paths, which do not enforce that schema.
+        return resolved_model.profile.supports_json_schema_output
     return provider == "openrouter" or (
         provider == "anthropic" and name == "claude-sonnet-5-5"
     )
@@ -573,9 +577,10 @@ def get_transcript_agent(clip_length: str = "auto") -> Agent[None, TranscriptAna
         if config_error:
             raise RuntimeError(config_error)
 
+        resolved_model = _build_transcript_model(runtime_config)
         _transcript_agent = Agent[None, TranscriptAnalysis](
-            model=_build_transcript_model(runtime_config),
-            output_type=NativeOutput(TranscriptAnalysis, strict=True) if _uses_native_output(runtime_config.llm) else TranscriptAnalysis,
+            model=resolved_model,
+            output_type=NativeOutput(TranscriptAnalysis, strict=True) if _uses_native_output(runtime_config.llm, resolved_model) else TranscriptAnalysis,
             system_prompt=build_transcript_system_prompt(clip_length),
             # Some local Ollama/OpenAI-compatible endpoints can return formatted
             # prose before settling on schema-valid JSON. Keep retries limited
@@ -652,9 +657,10 @@ def get_rerank_agent() -> Agent[None, CandidateRanking]:
         if config_error:
             raise RuntimeError(config_error)
 
+        resolved_model = _build_transcript_model(runtime_config, model_name)
         _rerank_agent = Agent[None, CandidateRanking](
-            model=_build_transcript_model(runtime_config, model_name),
-            output_type=NativeOutput(CandidateRanking, strict=True) if _uses_native_output(model_name) else CandidateRanking,
+            model=resolved_model,
+            output_type=NativeOutput(CandidateRanking, strict=True) if _uses_native_output(model_name, resolved_model) else CandidateRanking,
             system_prompt=candidate_rerank_system_prompt,
             output_retries=2,
         )

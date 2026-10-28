@@ -195,8 +195,18 @@ def transcribe_with_whisper(
     ``en_us`` are reduced to the ISO 639-1 base Whisper expects.
     """
     audio_path = _prepare_audio_for_transcription(video_path)
-    model = _get_whisper_model(model_name)
     whisper_language = language.split("_", 1)[0] if language else None
+    runtime_config = get_config()
+    local_url = getattr(runtime_config, "whisper_local_url", "")
+    if local_url:
+        from .local_whisper import transcribe_local
+
+        logger.info("Transcribing with the local faster-whisper service: %s", model_name)
+        return transcribe_local(
+            audio_path, local_url, model_name, whisper_language,
+            getattr(runtime_config, "whisper_local_timeout_seconds", 10800),
+        )
+    model = _get_whisper_model(model_name)
     logger.info(
         "Starting Whisper transcription with model: %s (language: %s)",
         model_name,

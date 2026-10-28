@@ -14,6 +14,7 @@ from src.ai import (
     _get_missing_llm_key_error,
     _parse_transcript_spans,
     _parse_transcript_timestamp_seconds,
+    _uses_native_output,
     build_transcript_analysis_prompt,
     build_transcript_system_prompt,
 )
@@ -86,6 +87,20 @@ def test_ollama_llm_builds_native_ollama_model():
     assert isinstance(model, OllamaModel)
     assert model.model_name == "gpt-oss:20b"
     assert model.base_url == "http://ollama.example/v1/"
+
+
+def test_local_ollama_uses_schema_output_without_breaking_cloud_profiles():
+    for base_url, model_name, expected in [
+        ("http://ollama.example/v1", "qwen2.5:3b", True),
+        ("https://ollama.com/v1", "qwen2.5:3b", False),
+        ("http://ollama.example/v1", "qwen2.5:3b-cloud", False),
+    ]:
+        config = SimpleNamespace(
+            llm=f"ollama:{model_name}", ollama_api_key=None,
+            resolve_ollama_base_url=lambda: base_url,
+        )
+        model = _build_transcript_model(config)
+        assert _uses_native_output(config.llm, model) is expected
 
 
 def test_parse_transcript_timestamp_supports_minute_and_hour_formats():
