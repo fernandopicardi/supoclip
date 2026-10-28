@@ -45,6 +45,7 @@
   "disableShare": "停用分享链接",
   "openEditor": "打开编辑器",
   "deleteGeneration": "删除生成",
+  "moreActions": "更多操作",
   "reconnectingOwn": "正在重新连接实时更新。你的视频仍在处理。",
   "reconnectingOther": "正在重新连接实时更新。这次生成仍在处理。",
   "cancelledTitle": "生成已取消",
@@ -71,6 +72,8 @@
   "captionTemplate": "字幕模板",
   "selectStyle": "选择样式",
   "defaultTemplate": "默认",
+  "brollTitle": "B-roll 素材",
+  "brollBody": "在说话者提到可展示的事物时添加素材视频。应用后保留已有 B-roll，并为没有的剪辑补充；关闭则移除。",
   "cleanupTitle": "片段清理",
   "cleanupBody": "对重新生成的片段应用静音和填充词剪切。",
   "shortenPauses": "缩短长停顿",
@@ -116,10 +119,15 @@
     "finding": "寻找片段",
     "rendering": "渲染片段"
   },
-  "waiting": "正在排队",
-  "processing": "处理中",
-  "clipsReady": "{count, plural, one {下方已有 # 个片段——还有更多在路上。} other {下方已有 # 个片段——还有更多在路上。}}",
-  "grabCoffee": "先去倒杯咖啡——片段一渲染完就会出现在这里。",
+  "eta": {
+    "queued": "正在等待处理",
+    "estimating": "正在估算剩余时间…",
+    "underMinute": "不到一分钟",
+    "minutes": "大约还需 {count} 分钟"
+  },
+  "clipOf": "第 {current} / {total} 个片段",
+  "leavePage": "可以离开此页面——片段完成后会保存在你的素材库中。",
+  "sourceLength": "源视频 {duration}",
   "percentComplete": "已完成 {progress}%",
   "transcript": {
     "heading": "文稿",

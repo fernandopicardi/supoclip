@@ -126,7 +126,30 @@ class MediaStorage:
                     aws_secret_access_key=self.config.media_s3_secret_key,
                     aws_session_token=self.config.media_s3_session_token,
                 )
-            self._client = boto3.client("s3", **options)
+            if getattr(self.config, "media_fallback_enabled", False):
+                from .media_replication import ReplicatedMediaClient
+
+                options["config"] = BotoConfig(
+                    signature_version="s3v4", connect_timeout=3, read_timeout=15,
+                    retries={"mode": "standard", "total_max_attempts": 2},
+                )
+                primary = boto3.client("s3", **options)
+                fallback = boto3.client(
+                    "s3", region_name=self.config.media_fallback_region,
+                    endpoint_url=self.config.media_fallback_endpoint,
+                    aws_access_key_id=self.config.media_fallback_access_key,
+                    aws_secret_access_key=self.config.media_fallback_secret_key,
+                    config=BotoConfig(signature_version="s3v4", connect_timeout=3, read_timeout=15,
+                                      retries={"mode": "standard", "total_max_attempts": 2},
+                                      request_checksum_calculation="when_required",
+                                      response_checksum_validation="when_required"),
+                )
+                self._client = ReplicatedMediaClient(
+                    primary, fallback, self.bucket, self.config.media_fallback_bucket,
+                    self.config.temp_dir, failover=self.config.media_failover_enabled,
+                )
+            else:
+                self._client = boto3.client("s3", **options)
         return self._client
 
     def key(self, *parts: str) -> str:
@@ -210,7 +233,12 @@ class MediaStorage:
     def _download(self, key: str, path: Path, *, optional=False):
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.part")
         try:
-            self.client.download_file(self.bucket, key, str(temporary))
+            from .media_replication import ReplicatedMediaClient
+
+            if isinstance(self.client, ReplicatedMediaClient):
+                self.client.download_file(self.bucket, key, str(temporary), optional=optional)
+            else:
+                self.client.download_file(self.bucket, key, str(temporary))
             temporary.replace(path)
             return True
         except ClientError as exc:
@@ -618,8 +646,12 @@ class MediaStorage:
         (directory / ".access").touch()
         asset = directory / "asset.json"
         if asset.exists():
-            ready = json.loads(asset.read_text()).get("status") == "ready"
-            if (not ready or all((directory / name).exists() for name in ("draft.json", "original.json"))) and (not media or (directory / "clean.mp4").exists()):
+            metadata = json.loads(asset.read_text())
+            ready = metadata.get("status") == "ready"
+            drafts_ready = not ready or all((directory / name).exists() for name in ("draft.json", "original.json"))
+            media_ready = ((directory / "clean.mp4").exists()
+                           and (not metadata.get("hasLayout") or (directory / "layout.mp4").exists()))
+            if drafts_ready and (not media or media_ready):
                 return
         manifest = directory / ".s3-manifest"
         if not self.bucket or (not self.enabled and not manifest.exists() and not s3_backed):
@@ -632,7 +664,7 @@ class MediaStorage:
         # Shared local state is authoritative; avoid waiting on a video upload
         # (or contacting S3) on every editor poll when the needed files exist.
         if stamps and all((directory / name).exists() for name in stamps
-                          if not name.endswith(".mp4") or (media and name == "clean.mp4")):
+                          if not name.endswith(".mp4") or (media and name in {"clean.mp4", "layout.mp4"})):
             return
         with (directory / ".sync").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
@@ -644,7 +676,7 @@ class MediaStorage:
                     if "/" in name or name.startswith(".") or not name:
                         continue
                     path = directory / name
-                    if path.exists() or (path.suffix == ".mp4" and (not media or name != "clean.mp4")):
+                    if path.exists() or (path.suffix == ".mp4" and (not media or name not in {"clean.mp4", "layout.mp4"})):
                         continue
                     self._download(obj["Key"], path)
                     stat = path.stat()
