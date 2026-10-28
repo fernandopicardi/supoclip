@@ -1,5 +1,6 @@
 **
 !backend/
+!backend/uv.lock
 !backend/src/
 !backend/src/**
 !mcp/
