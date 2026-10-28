@@ -1,3 +1,7 @@
+This fork preserves local editorial and self-host customizations. See
+[fork maintenance](docs/fork-maintenance.md) and
+[directed editing](docs/editorial-mcp.md).
+
 <p align="center">
   <a href="https://www.supoclip.com">
     <img src="assets/banner.jpg" alt="SupoClip dashboard with video input, caption controls, and recent clips" width="100%" />

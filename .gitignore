@@ -25,3 +25,14 @@ docs/youtube-provider-registry*.json
 
 # Local agent checkouts
 .claude/worktrees/
+
+# Private local deployment and editorial working data
+/docker-compose.local.yml
+/docker-compose.gpu.yml
+/backend/fonts/users/
+/local-bench/
+/local-smoke/
+/supoclip-downloads/
+/LOCAL-INSTALL.md
+/docs/plans/mcp-editorial-codex.md
+/docs/plans/mcp-editorial-validation-*.md
